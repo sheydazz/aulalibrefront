@@ -3,8 +3,10 @@ import { getSession } from '../auth'
 import { MOCK_DOCENTES_PERFIL, type DocentePerfil } from '../data/adminMockData'
 
 type TabId = 'horario' | 'reportes' | 'perfil'
+// Tipos de novedad que puede reportar el docente.
 type ReportType = 'cruce' | 'no_disponibilidad' | 'novedad'
 type ReportStatus = 'pendiente' | 'en_revision' | 'resuelto'
+// Filtro rapido por dia para la vista de horario.
 type TeacherDayFilter = 'all' | 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab'
 
 type TeacherReport = {
@@ -44,6 +46,7 @@ const TEACHER_DAYS: { key: Exclude<TeacherDayFilter, 'all'>; label: string; toke
 ]
 
 function initiales(nombreCompleto: string) {
+  // Genera dos letras para avatar del docente.
   const partes = nombreCompleto.trim().split(/\s+/).filter(Boolean)
   const a = partes[0]?.[0] ?? ''
   const b = partes[1]?.[0] ?? partes[0]?.[1] ?? ''
@@ -51,10 +54,13 @@ function initiales(nombreCompleto: string) {
 }
 
 function formatFecha(date = new Date()) {
+  // Formato de fecha corto en español (para lista de reportes).
   return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function findTeacherBySessionEmail(email: string | undefined): DocentePerfil {
+  // Intenta mapear el usuario autenticado al mock de docentes.
+  // Si no existe coincidencia, usa el primero como fallback de demo.
   if (!email) return MOCK_DOCENTES_PERFIL[0]
   const byEmail = MOCK_DOCENTES_PERFIL.find((d) => d.email.toLowerCase() === email.toLowerCase())
   if (byEmail) return byEmail
@@ -62,11 +68,13 @@ function findTeacherBySessionEmail(email: string | undefined): DocentePerfil {
 }
 
 function detectDayLabels(horario: string) {
+  // Extrae etiquetas de dias desde texto de horario (ej: "Lun / Mie ...").
   const lowered = horario.toLowerCase()
   return TEACHER_DAYS.filter((d) => lowered.includes(d.token)).map((d) => d.label)
 }
 
 export default function TeacherDashboardPage() {
+  // Se obtiene sesion para personalizar informacion del docente logueado.
   const session = getSession()
   const docente = useMemo(() => findTeacherBySessionEmail(session?.email), [session?.email])
   const [tab, setTab] = useState<TabId>('horario')
@@ -77,6 +85,7 @@ export default function TeacherDashboardPage() {
   const [reportDetail, setReportDetail] = useState('')
   const [reportMsg, setReportMsg] = useState<string | null>(null)
   const [reports, setReports] = useState<TeacherReport[]>([
+    // Datos iniciales de ejemplo para mostrar historial de reportes.
     {
       id: 'rep-1',
       createdAt: '12 mar 2026',
@@ -96,6 +105,7 @@ export default function TeacherDashboardPage() {
   ])
 
   const filteredCarga = useMemo(() => {
+    // Filtrado combinado por dia y por texto libre.
     const term = q.trim().toLowerCase()
     const byDay =
       dayFilter === 'all'
@@ -112,6 +122,7 @@ export default function TeacherDashboardPage() {
   }, [docente.carga, dayFilter, q])
 
   const onSubmitReport = (e: FormEvent) => {
+    // Registra novedad localmente en la lista (demo frontend sin API).
     e.preventDefault()
     const subject = reportSubject.trim()
     const detail = reportDetail.trim()
@@ -180,6 +191,7 @@ export default function TeacherDashboardPage() {
       </section>
 
       {tab === 'horario' ? (
+        // Vista visual del horario del docente (estilo similar a estudiante).
         <section className="mt-4 rounded-2xl border border-rose-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-rose-100 bg-gradient-to-r from-rose-50 to-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -266,6 +278,7 @@ export default function TeacherDashboardPage() {
       ) : null}
 
       {tab === 'reportes' ? (
+        // Formulario y bandeja de reportes de cruce/no disponibilidad.
         <section className="mt-4 grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
           <form className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" onSubmit={onSubmitReport}>
             <h2 className="text-lg font-bold text-slate-900">Reportar cruce o no disponibilidad</h2>
@@ -335,6 +348,7 @@ export default function TeacherDashboardPage() {
       ) : null}
 
       {tab === 'perfil' ? (
+        // Resumen de datos personales/academicos del docente.
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900">Mi perfil docente</h2>
           <p className="mt-1 text-sm text-slate-600">Datos visibles para coordinación académica.</p>

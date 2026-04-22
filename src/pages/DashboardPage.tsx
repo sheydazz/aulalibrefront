@@ -2,10 +2,12 @@ import { Link, Navigate } from 'react-router-dom'
 import { getSession } from '../auth'
 
 export default function DashboardPage() {
+  // Dashboard general de compatibilidad para perfiles no-estudiante.
   const session = getSession()
 
   if (!session) return null
   if (session.role === 'estudiante') {
+    // Estudiante usa su propio modulo dedicado.
     return <Navigate to="/estudiante" replace />
   }
 
@@ -18,6 +20,7 @@ export default function DashboardPage() {
       </p>
 
       <nav className="mt-6 grid gap-3 sm:grid-cols-3">
+        {/* Accesos rapidos entre pantallas por rol (vista puente). */}
         <Link
           to={session.role === 'admin' ? '/admin' : '/pantallas/admin'}
           className="rounded-xl border border-slate-200 bg-white px-4 py-5 font-bold text-slate-900 transition hover:border-emerald-400"

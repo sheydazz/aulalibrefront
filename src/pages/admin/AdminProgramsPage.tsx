@@ -14,6 +14,7 @@ const AREA_BADGE: Record<AsignaturaRow['areaTone'], string> = {
 }
 
 export default function AdminProgramsPage() {
+  // Administra programas, semestres y asignaturas del plan académico.
   const [selectedId, setSelectedId] = useState(MOCK_PROGRAMAS[0].id)
   const [semestre, setSemestre] = useState(1)
   const [openProgramaModal, setOpenProgramaModal] = useState(false)
@@ -22,6 +23,7 @@ export default function AdminProgramsPage() {
   const programa = MOCK_PROGRAMAS.find((p) => p.id === selectedId) ?? MOCK_PROGRAMAS[0]
 
   const resumen = useMemo(() => {
+    // Resumen rápido para tarjetas (total materias y créditos).
     const list = MOCK_PLAN_SISTEMAS_SEM1
     const creditos = list.reduce((a, s) => a + s.creditos, 0)
     return { total: list.length, creditos }
@@ -29,6 +31,7 @@ export default function AdminProgramsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Encabezado y acciones globales del módulo. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Gestión de programas y semestres</h2>
@@ -46,6 +49,7 @@ export default function AdminProgramsPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {/* Tarjetas de selección de programa. */}
         {MOCK_PROGRAMAS.map((p) => (
           <button
             key={p.id}

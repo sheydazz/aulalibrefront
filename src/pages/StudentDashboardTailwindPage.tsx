@@ -9,7 +9,9 @@ import {
 } from '../data/studentSchedule'
 
 type TabId = 'horario' | 'crear'
+// Tipo MIME personalizado para mover materias en drag and drop.
 const DRAG_TYPE = 'application/x-aulalibre-student-materia'
+// Estructura base del tablero semanal del constructor.
 const BUILDER_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] as const
 const BUILDER_SLOTS = [
   { id: 'b0', label: '07:00 - 09:00', locked: false },
@@ -28,14 +30,17 @@ const ACCENT_STYLES: Record<CardAccent, string> = {
 }
 
 function blockKey(block: ScheduleBlock, index: number) {
+  // Ayuda a React a identificar de forma unica cada tarjeta del horario.
   return `${block.type}-${block.start}-${block.end}-${index}`
 }
 
 function builderCellKey(slotIdx: number, dayIdx: number) {
+  // Convierte (fila, columna) del tablero en una llave tipo "1-3".
   return `${slotIdx}-${dayIdx}`
 }
 
 function normalizeDocente(s: string) {
+  // Normaliza texto para comparar docentes evitando problemas de puntos/espacios.
   return s.trim().toLowerCase().replace(/[.,\s]+/g, '')
 }
 
@@ -49,6 +54,8 @@ function simulatePlacement(
   dayIdx: number,
   materiaId: string,
 ): Record<string, string | null> {
+  // Simula "como quedaria" el tablero si soltamos una materia en una celda.
+  // Si la materia ya estaba en otra celda, la mueve (no la duplica).
   const key = builderCellKey(slotIdx, dayIdx)
   const out: Record<string, string | null> = {}
   for (const [k, v] of Object.entries(map)) {
@@ -66,6 +73,9 @@ function validatePlacement(
   dayIdx: number,
   materiaId: string,
 ): { ok: true } | { ok: false; reason: string } {
+  // Reglas minimas del constructor:
+  // 1) No permitir clase en almuerzo.
+  // 2) Evitar que el mismo docente se cruce en la misma franja.
   const slot = BUILDER_SLOTS[slotIdx]
   if (!slot || slot.locked) return { ok: false, reason: 'El bloque de almuerzo no admite clases.' }
   const materia = findOfertaMateria(materiaId)
@@ -89,11 +99,14 @@ function validatePlacement(
 }
 
 export default function StudentDashboardTailwindPage() {
+  // Estado de la vista de horario "normal" (lectura del horario del estudiante).
   const [day, setDay] = useState<DayKey>('lun')
   const [programa, setPrograma] = useState('Ingeniería de Sistemas')
   const [semestreGrupo, setSemestreGrupo] = useState('5to Semestre - Grupo A')
   const [tab, setTab] = useState<TabId>('horario')
   const daySchedule = useMemo(() => SCHEDULE_BY_DAY[day], [day])
+
+  // Estado de la vista "Crear mi horario" (constructor interactivo).
   const [builderSelection, setBuilderSelection] = useState('5-A')
   const [builderAssignments, setBuilderAssignments] = useState<Record<string, string | null>>({})
   const [builderPendingIds, setBuilderPendingIds] = useState<Set<string>>(() => new Set())
@@ -103,6 +116,7 @@ export default function StudentDashboardTailwindPage() {
   const [builderMessage, setBuilderMessage] = useState<string | null>(null)
 
   const builderOptions = useMemo(() => {
+    // Genera opciones unicas de semestre-grupo a partir del mock de oferta.
     const combos = new Set(MOCK_OFERTA_MATERIAS.map((m) => `${m.semestreNum}-${m.grupoSeccion}`))
     return [...combos]
       .map((key) => {
@@ -116,18 +130,21 @@ export default function StudentDashboardTailwindPage() {
   }, [])
 
   const builderCatalog = useMemo(() => {
+    // Catálogo de materias que SI pertenecen al semestre/grupo seleccionado.
     const [semestreStr, grupoSeccion] = builderSelection.split('-')
     const semestreNum = Number(semestreStr)
     return MOCK_OFERTA_MATERIAS.filter((m) => m.semestreNum === semestreNum && m.grupoSeccion === grupoSeccion)
   }, [builderSelection])
 
   useEffect(() => {
+    // Cuando cambia la seleccion (semestre/grupo), se reinicia el tablero.
     setBuilderAssignments({})
     setBuilderPendingIds(new Set(builderCatalog.map((m) => m.id)))
     setBuilderMessage(null)
   }, [builderCatalog])
 
   const builderPendingList = useMemo(() => {
+    // Filtro de busqueda sobre materias pendientes del catalogo.
     const q = builderSearch.trim().toLowerCase()
     return builderCatalog.filter((m) => builderPendingIds.has(m.id)).filter(
       (m) =>
@@ -139,6 +156,7 @@ export default function StudentDashboardTailwindPage() {
   }, [builderCatalog, builderPendingIds, builderSearch])
 
   const onBuilderPlace = (slotIdx: number, dayIdx: number, materiaId: string) => {
+    // Intenta ubicar una materia en una celda; si falla validacion muestra motivo.
     const key = builderCellKey(slotIdx, dayIdx)
     const v = validatePlacement(builderAssignments, slotIdx, dayIdx, materiaId)
     if (v.ok === false) {
@@ -158,6 +176,7 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderClearCell = (slotIdx: number, dayIdx: number) => {
+    // Quita materia de la celda y la devuelve al panel de pendientes.
     const key = builderCellKey(slotIdx, dayIdx)
     const id = builderAssignments[key]
     if (!id) return
@@ -171,6 +190,7 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderDragStart = (e: DragEvent, materiaId: string) => {
+    // Inicia arrastre guardando el id de materia en DataTransfer.
     e.dataTransfer.setData(DRAG_TYPE, materiaId)
     e.dataTransfer.effectAllowed = 'move'
     setBuilderDraggingId(materiaId)
@@ -183,6 +203,7 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderDragOver = (e: DragEvent, slotIdx: number, dayIdx: number) => {
+    // Evalua si la celda actual permite soltar la materia (feedback verde/rojo).
     e.preventDefault()
     if (!builderDraggingId) {
       setBuilderDragOverCell(null)
@@ -200,6 +221,7 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderDrop = (e: DragEvent, slotIdx: number, dayIdx: number) => {
+    // Al soltar, toma el id arrastrado y delega en onBuilderPlace.
     e.preventDefault()
     const materiaId = e.dataTransfer.getData(DRAG_TYPE) || builderDraggingId
     setBuilderDragOverCell(null)
@@ -275,6 +297,7 @@ export default function StudentDashboardTailwindPage() {
       </header>
 
       {tab === 'crear' ? (
+        // Vista de constructor: pendientes (izquierda) + tablero (derecha).
         <main className="flex-1 px-4 py-6 sm:px-6">
           <section className="space-y-4 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -418,6 +441,7 @@ export default function StudentDashboardTailwindPage() {
           </section>
         </main>
       ) : (
+        // Vista de consulta del horario actual (solo lectura por dia).
         <>
           <div className="bg-rose-50 px-4 pt-3 sm:px-6 print:hidden">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -480,6 +504,7 @@ export default function StudentDashboardTailwindPage() {
 
 function ScheduleCard({ block }: { block: ScheduleBlock }) {
   if (block.type === 'empty') {
+    // Bloque sin clase asignada.
     return (
       <article className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4">
         <div className="mb-1 text-xs font-bold text-slate-700">
@@ -491,6 +516,7 @@ function ScheduleCard({ block }: { block: ScheduleBlock }) {
   }
 
   return (
+    // Bloque de clase real (materia, docente y ubicacion).
     <article className={`rounded-xl border-l-4 p-4 shadow-sm ${ACCENT_STYLES[block.accent]}`}>
       <div className="mb-2 text-xs font-bold text-slate-700">
         {block.start} - {block.end}

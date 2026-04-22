@@ -88,16 +88,19 @@ function validatePlacement(
 const firstOferta = MOCK_OFERTA_MATERIAS[0]
 
 export default function AdminScheduleBuilderPage() {
+  // Constructor visual: arma horario por programa/semestre/grupo.
   const [programaId, setProgramaId] = useState(firstOferta.programaId)
   const [semestreNum, setSemestreNum] = useState(firstOferta.semestreNum)
   const [grupoSeccion, setGrupoSeccion] = useState(firstOferta.grupoSeccion)
 
   const semestresOpciones = useMemo(() => {
+    // Lista de semestres disponibles para el programa seleccionado.
     const s = new Set(MOCK_OFERTA_MATERIAS.filter((m) => m.programaId === programaId).map((m) => m.semestreNum))
     return [...s].sort((a, b) => a - b)
   }, [programaId])
 
   const gruposOpciones = useMemo(() => {
+    // Lista de grupos existentes dentro del semestre actual.
     const s = new Set(
       MOCK_OFERTA_MATERIAS.filter((m) => m.programaId === programaId && m.semestreNum === semestreNum).map(
         (m) => m.grupoSeccion,
@@ -119,6 +122,7 @@ export default function AdminScheduleBuilderPage() {
   }, [programaId, semestreNum, gruposOpciones, grupoSeccion])
 
   const catalog = useMemo(
+    // Catálogo de materias específico para combinación seleccionada.
     () =>
       MOCK_OFERTA_MATERIAS.filter(
         (m) => m.programaId === programaId && m.semestreNum === semestreNum && m.grupoSeccion === grupoSeccion,
@@ -153,6 +157,7 @@ export default function AdminScheduleBuilderPage() {
   }, [catalog, pendingIds, search])
 
   const placeInCell = (slotIdx: number, dayIdx: number, grupoId: string) => {
+    // Valida y ubica materia en celda; si estaba en otra, la mueve.
     const key = cellKey(slotIdx, dayIdx)
     const v = validatePlacement(assignments, slotIdx, dayIdx, grupoId)
     if (v.ok === false) {
@@ -195,6 +200,7 @@ export default function AdminScheduleBuilderPage() {
   }
 
   const setSalonForCell = (slotIdx: number, dayIdx: number, salonCodigo: string) => {
+    // Permite escoger salón por celda/materia en el tablero.
     const key = cellKey(slotIdx, dayIdx)
     setSalonByCell((prev) => ({ ...prev, [key]: salonCodigo }))
     setLastMessage(null)

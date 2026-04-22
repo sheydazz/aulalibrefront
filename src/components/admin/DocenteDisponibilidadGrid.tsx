@@ -33,6 +33,7 @@ const INITIAL_DEMO: Record<string, boolean> = {
 }
 
 function cellKey(hourIdx: number, day: string) {
+  // Convierte fila/columna en llave única para guardar disponibilidad.
   return `${hourIdx}-${day}`
 }
 
@@ -42,15 +43,18 @@ type Props = {
 }
 
 export default function DocenteDisponibilidadGrid({ docenteId, nombreCompleto }: Props) {
+  // Estado por docente: cada id mantiene su propia matriz editable.
   const [porDocente, setPorDocente] = useState<Record<string, Record<string, boolean>>>({})
   const [periodo, setPeriodo] = useState('2026 - Semestre I')
 
   const cells = useMemo(
+    // Si el docente aún no tiene cambios, usa matriz demo inicial.
     () => porDocente[docenteId] ?? INITIAL_DEMO,
     [porDocente, docenteId],
   )
 
   const toggle = (hourIdx: number, day: string) => {
+    // Alterna disponible/no disponible en una celda de la grilla.
     const k = cellKey(hourIdx, day)
     setPorDocente((prev) => {
       const base = prev[docenteId] ? { ...prev[docenteId] } : { ...INITIAL_DEMO }

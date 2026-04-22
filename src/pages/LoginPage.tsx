@@ -6,12 +6,14 @@ import { resolveRoleByEmail, saveSession, type UserRole } from '../auth'
 const EMAIL_DOMAIN = '@unilibre.edu.co'
 
 function getHomeByRole(role: UserRole) {
+  // Define a que modulo entra cada rol luego de autenticarse.
   if (role === 'admin') return '/admin'
   if (role === 'docente') return '/docente'
   return '/estudiante'
 }
 
 export default function LoginPage() {
+  // Hook de navegación para redireccionar luego de login correcto.
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,11 +23,13 @@ export default function LoginPage() {
 
   const cleanedEmail = email.trim().toLowerCase()
   const hasValidEmail = useMemo(
+    // Regla simple: solo correo institucional.
     () => cleanedEmail.endsWith(EMAIL_DOMAIN),
     [cleanedEmail],
   )
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    // Flujo de validacion basica + persistencia de sesion local.
     event.preventDefault()
     setError('')
 
@@ -45,6 +49,7 @@ export default function LoginPage() {
     }
 
     const role = resolveRoleByEmail(cleanedEmail)
+    // Se guarda sesion en localStorage (helper en auth.ts).
     saveSession({
       email: cleanedEmail,
       role,

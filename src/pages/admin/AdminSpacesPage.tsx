@@ -21,6 +21,7 @@ function barColor(pct: number) {
 }
 
 export default function AdminSpacesPage() {
+  // Inventario de espacios físicos con capacidad y tipo de uso.
   const [q, setQ] = useState('')
   const [openNuevoEspacio, setOpenNuevoEspacio] = useState(false)
   const [draft, setDraft] = useState({
@@ -38,18 +39,21 @@ export default function AdminSpacesPage() {
   })
 
   const rows = useMemo(() => {
+    // Filtra espacios por código o nombre.
     const t = q.trim().toLowerCase()
     if (!t) return MOCK_ESPACIOS
     return MOCK_ESPACIOS.filter((e) => e.codigo.toLowerCase().includes(t) || e.nombre.toLowerCase().includes(t))
   }, [q])
 
   const titleNombre = useMemo(() => {
+    // Ajusta etiqueta del formulario según el tipo de espacio.
     if (draft.tipoEspacio === 'Laboratorio') return 'Nombre del laboratorio'
     if (draft.tipoEspacio === 'Sala de informática') return 'Nombre de la sala'
     return 'Nombre del aula'
   }, [draft.tipoEspacio])
 
   const resetDraft = () => {
+    // Limpia el formulario de creación de espacio.
     setDraft({
       tipoEspacio: 'Aula',
       nombre: '',
@@ -66,6 +70,7 @@ export default function AdminSpacesPage() {
   }
 
   const addSoftware = () => {
+    // Agrega software evitando entradas vacías o duplicadas.
     const value = draft.softwareInput.trim()
     if (!value) return
     if (draft.softwareList.some((s) => s.toLowerCase() === value.toLowerCase())) {

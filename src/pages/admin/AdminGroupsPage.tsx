@@ -3,12 +3,14 @@ import { AddProgramModal, AddSubjectModal } from '../../components/admin/Program
 import { MOCK_GRUPOS_POO, MOCK_PROGRAMAS } from '../../data/adminMockData'
 
 export default function AdminGroupsPage() {
+  // Gestión de grupos por asignatura (cupos, docente y estado).
   const [busqueda, setBusqueda] = useState('')
   const [openProgramaModal, setOpenProgramaModal] = useState(false)
   const [openAsignaturaModal, setOpenAsignaturaModal] = useState(false)
   const [openGrupoModal, setOpenGrupoModal] = useState(false)
 
   const rows = useMemo(() => {
+    // Búsqueda flexible sobre listado de grupos.
     const q = busqueda.trim().toLowerCase()
     if (!q) return MOCK_GRUPOS_POO
     return MOCK_GRUPOS_POO.filter(
@@ -22,12 +24,14 @@ export default function AdminGroupsPage() {
   const totalCupo = MOCK_GRUPOS_POO.reduce((a, g) => a + g.cupoMax, 0)
 
   const submitGrupo = (e: FormEvent<HTMLFormElement>) => {
+    // En demo solo cierra modal; luego se conecta a API.
     e.preventDefault()
     setOpenGrupoModal(false)
   }
 
   return (
     <div className="space-y-6">
+      {/* Encabezado con acciones principales del módulo. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Gestión de grupos por asignatura</h2>

@@ -21,6 +21,7 @@ function inicialesDeNombre(nombreCompleto: string) {
 }
 
 export default function AdminTeacherPage() {
+  // Vista administrativa de docentes: perfil, carga y disponibilidad.
   const [docentes, setDocentes] = useState<DocentePerfil[]>(() => [...MOCK_DOCENTES_PERFIL])
   const [selectedId, setSelectedId] = useState(MOCK_DOCENTES_PERFIL[0].id)
   const [tab, setTab] = useState<DocenteTab>('carga')
@@ -44,6 +45,7 @@ export default function AdminTeacherPage() {
   const limiteOk = horas <= maxHoras
 
   const filasCarga = useMemo(() => {
+    // Filtro de filas en tabla de carga académica.
     const t = q.trim().toLowerCase()
     if (!t) return docente.carga
     return docente.carga.filter(
@@ -55,6 +57,7 @@ export default function AdminTeacherPage() {
   }, [docente.carga, q])
 
   const abrirAgregar = () => {
+    // Inicializa el formulario y abre modal de nuevo docente.
     setFormNuevo({
       nombreCompleto: '',
       tituloProfesional: 'Ing.',
@@ -68,6 +71,7 @@ export default function AdminTeacherPage() {
   }
 
   const guardarNuevoDocente = (e: FormEvent) => {
+    // Crea registro local de docente (demo frontend).
     e.preventDefault()
     const nombre = formNuevo.nombreCompleto.trim()
     const email = formNuevo.email.trim().toLowerCase()

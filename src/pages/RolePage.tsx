@@ -9,6 +9,7 @@ const titleMap: Record<UserRole, string> = {
 }
 
 export default function RolePage() {
+  // Pantalla puente por rol: valida permisos y redirige al modulo real.
   const { role } = useParams<{ role: UserRole }>()
   const session = getSession()
 
@@ -16,6 +17,10 @@ export default function RolePage() {
   if (!role || !titleMap[role]) return <Navigate to="/dashboard" replace />
 
   const canAccess =
+    // Reglas de acceso temporal:
+    // - Cada rol entra a su propia pantalla.
+    // - Admin puede ver todo.
+    // - Docente puede revisar vista estudiante.
     session.role === role ||
     session.role === 'admin' ||
     (session.role === 'docente' && role === 'estudiante')
@@ -30,11 +35,8 @@ export default function RolePage() {
     return <Navigate to="/admin" replace />
   }
 
-  if (role === 'docente') {
-    return <Navigate to="/docente" replace />
-  }
-
   return (
+    // Fallback visual para roles aun no implementados completamente.
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{titleMap[role]}</h1>
       <p className="mt-2 text-slate-600">Esta vista ya esta lista para que agregues el contenido real.</p>

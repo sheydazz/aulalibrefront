@@ -28,9 +28,11 @@ type AddSubjectModalProps = {
 }
 
 export function AddProgramModal({ open, onClose, onSave }: AddProgramModalProps) {
+  // Modal controlado por props; si open=false no renderiza nada.
   if (!open) return null
 
   const submitPrograma = (e: FormEvent<HTMLFormElement>) => {
+    // Lee datos del formulario con FormData para evitar estado por campo.
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     onSave?.({
@@ -119,9 +121,11 @@ export function AddSubjectModal({
   defaultProgram,
   onSave,
 }: AddSubjectModalProps) {
+  // Modal reutilizable para crear asignaturas en programas y grupos.
   if (!open) return null
 
   const submitAsignatura = (e: FormEvent<HTMLFormElement>) => {
+    // Normaliza entradas y emite payload al contenedor padre.
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     onSave?.({

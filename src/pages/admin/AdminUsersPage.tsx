@@ -16,11 +16,13 @@ function RolBadge({ rol }: { rol: RolTag }) {
 }
 
 export default function AdminUsersPage() {
+  // Pantalla principal para gestionar usuarios del sistema y sus roles.
   const [query, setQuery] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
   const [draft, setDraft] = useState({ nombre: '', email: '', rol: '' as RolTag | '', activo: true })
 
   const filtered = useMemo(() => {
+    // Filtro de tabla por nombre, correo o rol.
     const q = query.trim().toLowerCase()
     if (!q) return MOCK_ADMIN_USERS
     return MOCK_ADMIN_USERS.filter(
@@ -33,6 +35,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
+      {/* Columna principal: buscador + tabla de resultados. */}
       <section className="flex-1 space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -110,6 +113,7 @@ export default function AdminUsersPage() {
       </section>
 
       {panelOpen ? (
+        // Panel lateral para crear/editar usuario (demo local).
         <aside className="w-full shrink-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-lg lg:w-96">
           <h3 className="text-lg font-bold text-slate-900">{draft.nombre ? 'Editar usuario' : 'Nuevo usuario'}</h3>
           <form
