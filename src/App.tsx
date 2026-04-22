@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { clearSession, getSession } from './auth'
 import AdminLayout from './layouts/AdminLayout'
 import DashboardPage from './pages/DashboardPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import AdminGroupsPage from './pages/admin/AdminGroupsPage'
 import AdminProgramsPage from './pages/admin/AdminProgramsPage'
@@ -104,6 +105,10 @@ export default function App() {
         <Route
           path="/login"
           element={session ? <Navigate to={postLoginHome()} replace /> : <LoginPage />}
+        />
+        <Route
+          path="/recuperar-contrasena"
+          element={session ? <Navigate to={postLoginHome()} replace /> : <ForgotPasswordPage />}
         />
         <Route
           path="/estudiante"

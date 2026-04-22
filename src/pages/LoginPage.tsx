@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { resolveRoleByEmail, saveSession, type UserRole } from '../auth'
 
 const EMAIL_DOMAIN = '@unilibre.edu.co'
@@ -15,6 +15,7 @@ function getHomeByRole(role: UserRole) {
 export default function LoginPage() {
   // Hook de navegación para redireccionar luego de login correcto.
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -27,6 +28,8 @@ export default function LoginPage() {
     () => cleanedEmail.endsWith(EMAIL_DOMAIN),
     [cleanedEmail],
   )
+  const recoverySent = (location.state as { recoverySent?: boolean; recoveryEmail?: string } | null)?.recoverySent
+  const recoveryEmail = (location.state as { recoverySent?: boolean; recoveryEmail?: string } | null)?.recoveryEmail
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     // Flujo de validacion basica + persistencia de sesion local.
@@ -119,11 +122,16 @@ export default function LoginPage() {
               />
               Mantener sesion iniciada
             </label>
-            <button className="text-sm font-semibold text-rose-700 hover:text-rose-800" type="button">
+            <Link to="/recuperar-contrasena" className="text-sm font-semibold text-rose-700 hover:text-rose-800">
               Olvidaste tu contrasena?
-            </button>
+            </Link>
           </div>
 
+          {recoverySent ? (
+            <p className="mt-1 text-sm font-semibold text-emerald-700">
+              Te enviamos instrucciones de recuperacion a {recoveryEmail}.
+            </p>
+          ) : null}
           {error ? <p className="mt-1 text-sm font-semibold text-rose-600">{error}</p> : null}
 
           <button
