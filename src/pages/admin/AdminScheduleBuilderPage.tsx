@@ -303,27 +303,6 @@ export default function AdminScheduleBuilderPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-amber-50 px-4 py-3 text-xs text-amber-950">
-        <p className="font-bold">Cómo armar horarios en la práctica</p>
-        <ul className="mt-2 list-inside list-disc space-y-1">
-          <li>
-            <strong>Arrastrar</strong> cada grupo pendiente a un bloque; si un docente ya ocupa ese mismo tramo en otro
-            día, el sistema lo rechaza (un docente no puede estar en dos sitios a la vez).
-          </li>
-          <li>
-            <strong>Materias de varios bloques</strong> (ej. 4 h): coloca el mismo grupo en dos filas consecutivas o
-            reparte teoría/práctica en días distintos según el plan.
-          </li>
-          <li>
-            <strong>Clic en ✕</strong> en una celda ocupada devuelve el grupo a “Pendientes”.
-          </li>
-          <li>
-            Más adelante: reglas por <strong>disponibilidad docente</strong>, <strong>tipo de sala</strong> y
-            optimización automática (solver / IA).
-          </li>
-        </ul>
-      </div>
-
       <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
         <label className="font-semibold text-slate-800">
           Programa

@@ -11,6 +11,7 @@ import {
 type TabId = 'horario' | 'crear'
 // Tipo MIME personalizado para mover materias en drag and drop.
 const DRAG_TYPE = 'application/x-aulalibre-student-materia'
+const STUDENT_BUILDER_STORAGE_KEY = 'aulalibre-student-builder'
 // Estructura base del tablero semanal del constructor.
 const BUILDER_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] as const
 const BUILDER_SLOTS = [
@@ -98,6 +99,10 @@ function validatePlacement(
   return { ok: true }
 }
 
+function getBuilderStorageKey(selection: string) {
+  return `${STUDENT_BUILDER_STORAGE_KEY}:${selection}`
+}
+
 export default function StudentDashboardTailwindPage() {
   // Estado de la vista de horario "normal" (lectura del horario del estudiante).
   const [day, setDay] = useState<DayKey>('lun')
@@ -137,11 +142,31 @@ export default function StudentDashboardTailwindPage() {
   }, [builderSelection])
 
   useEffect(() => {
-    // Cuando cambia la seleccion (semestre/grupo), se reinicia el tablero.
-    setBuilderAssignments({})
-    setBuilderPendingIds(new Set(builderCatalog.map((m) => m.id)))
+    // Cuando cambia semestre/grupo, intenta restaurar un borrador local.
+    const raw = localStorage.getItem(getBuilderStorageKey(builderSelection))
+    if (!raw) {
+      setBuilderAssignments({})
+      setBuilderPendingIds(new Set(builderCatalog.map((m) => m.id)))
+      setBuilderMessage(null)
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw) as Record<string, string | null>
+      const validIds = new Set(builderCatalog.map((m) => m.id))
+      const restored: Record<string, string | null> = {}
+      for (const [key, materiaId] of Object.entries(parsed)) {
+        if (!materiaId || !validIds.has(materiaId)) continue
+        restored[key] = materiaId
+      }
+      setBuilderAssignments(restored)
+      const usedIds = new Set(Object.values(restored).filter((id): id is string => Boolean(id)))
+      setBuilderPendingIds(new Set(builderCatalog.map((m) => m.id).filter((id) => !usedIds.has(id))))
+    } catch {
+      setBuilderAssignments({})
+      setBuilderPendingIds(new Set(builderCatalog.map((m) => m.id)))
+    }
     setBuilderMessage(null)
-  }, [builderCatalog])
+  }, [builderCatalog, builderSelection])
 
   const builderPendingList = useMemo(() => {
     // Filtro de busqueda sobre materias pendientes del catalogo.
@@ -230,6 +255,11 @@ export default function StudentDashboardTailwindPage() {
     onBuilderPlace(slotIdx, dayIdx, materiaId)
   }
 
+  const onSaveBuilder = () => {
+    localStorage.setItem(getBuilderStorageKey(builderSelection), JSON.stringify(builderAssignments))
+    setBuilderMessage('Horario guardado correctamente en este navegador.')
+  }
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col bg-rose-50 text-rose-900 lg:my-6 lg:overflow-hidden lg:rounded-3xl lg:shadow-2xl lg:shadow-rose-900/10">
       <header className="rounded-b-3xl bg-gradient-to-br from-red-700 via-rose-700 to-red-800 px-4 pb-4 pt-5 text-rose-50 sm:px-6">
@@ -305,17 +335,26 @@ export default function StudentDashboardTailwindPage() {
                 <h2 className="text-xl font-bold text-rose-900">Crear mi horario</h2>
                 <p className="text-sm text-slate-600">Elige semestre/grupo y arma tu horario con arrastrar y soltar.</p>
               </div>
-              <select
-                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900"
-                value={builderSelection}
-                onChange={(e) => setBuilderSelection(e.target.value)}
-              >
-                {builderOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900"
+                  value={builderSelection}
+                  onChange={(e) => setBuilderSelection(e.target.value)}
+                >
+                  {builderOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={onSaveBuilder}
+                  className="rounded-xl bg-rose-700 px-4 py-2 text-sm font-bold text-white hover:bg-rose-800"
+                >
+                  Guardar horario
+                </button>
+              </div>
             </div>
 
             {builderMessage ? <p className="text-sm font-semibold text-red-700">{builderMessage}</p> : null}
