@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { resolveRoleByEmail, saveSession } from '../auth'
+import { resolveRoleByEmail, saveSession, type UserRole } from '../auth'
 
 const EMAIL_DOMAIN = '@unilibre.edu.co'
+
+function getHomeByRole(role: UserRole) {
+  if (role === 'admin') return '/admin'
+  if (role === 'docente') return '/docente'
+  return '/estudiante'
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -45,7 +51,7 @@ export default function LoginPage() {
       remember,
     })
 
-    navigate(role === 'estudiante' ? '/estudiante' : '/dashboard', { replace: true })
+    navigate(getHomeByRole(role), { replace: true })
   }
 
   return (

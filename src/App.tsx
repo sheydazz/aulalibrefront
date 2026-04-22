@@ -1,9 +1,17 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { clearSession, getSession } from './auth'
+import AdminLayout from './layouts/AdminLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
+import AdminGroupsPage from './pages/admin/AdminGroupsPage'
+import AdminProgramsPage from './pages/admin/AdminProgramsPage'
+import AdminScheduleBuilderPage from './pages/admin/AdminScheduleBuilderPage'
+import AdminSpacesPage from './pages/admin/AdminSpacesPage'
+import AdminTeacherPage from './pages/admin/AdminTeacherPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
 import RolePage from './pages/RolePage'
+import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentDashboardTailwindPage from './pages/StudentDashboardTailwindPage'
 
 function StudentEstudianteGate() {
@@ -26,12 +34,26 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return children
 }
 
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const session = getSession()
+  if (!session) return <Navigate to="/login" replace />
+  if (session.role !== 'admin') return <Navigate to="/dashboard" replace />
+  return children
+}
+
+function DocenteGate() {
+  const session = getSession()
+  if (!session) return null
+  if (session.role !== 'docente') return <Navigate to="/dashboard" replace />
+  return <TeacherDashboardPage />
+}
+
 function AppLayout({ children }: { children: ReactNode }) {
   const session = getSession()
   const location = useLocation()
 
-  const hideChromeForStudentHome = location.pathname.startsWith('/estudiante')
-  const showTopBar = session && location.pathname !== '/login' && !hideChromeForStudentHome
+  const hideChromeForAdmin = location.pathname.startsWith('/admin')
+  const showTopBar = session && location.pathname !== '/login' && !hideChromeForAdmin
 
   return (
     <>
@@ -64,7 +86,9 @@ function AppLayout({ children }: { children: ReactNode }) {
 function postLoginHome() {
   const session = getSession()
   if (!session) return '/login'
-  return session.role === 'estudiante' ? '/estudiante' : '/dashboard'
+  if (session.role === 'admin') return '/admin'
+  if (session.role === 'docente') return '/docente'
+  return '/estudiante'
 }
 
 export default function App() {
@@ -90,6 +114,14 @@ export default function App() {
           }
         />
         <Route
+          path="/docente"
+          element={
+            <RequireAuth>
+              <DocenteGate />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/dashboard"
           element={
             <RequireAuth>
@@ -97,6 +129,25 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <RequireAdmin>
+                <AdminLayout />
+              </RequireAdmin>
+            </RequireAuth>
+          }
+        >
+          <Route index element={<Navigate to="usuarios" replace />} />
+          <Route path="usuarios" element={<AdminUsersPage />} />
+          <Route path="programas" element={<AdminProgramsPage />} />
+          <Route path="grupos" element={<AdminGroupsPage />} />
+          <Route path="docentes" element={<AdminTeacherPage />} />
+          <Route path="disponibilidad" element={<Navigate to="/admin/docentes" replace />} />
+          <Route path="infraestructura" element={<AdminSpacesPage />} />
+          <Route path="horarios" element={<AdminScheduleBuilderPage />} />
+        </Route>
         <Route
           path="/pantallas/:role"
           element={

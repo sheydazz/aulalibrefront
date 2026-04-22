@@ -19,10 +19,10 @@ export default function DashboardPage() {
 
       <nav className="mt-6 grid gap-3 sm:grid-cols-3">
         <Link
-          to="/pantallas/admin"
+          to={session.role === 'admin' ? '/admin' : '/pantallas/admin'}
           className="rounded-xl border border-slate-200 bg-white px-4 py-5 font-bold text-slate-900 transition hover:border-emerald-400"
         >
-          Pantalla Admin
+          {session.role === 'admin' ? 'Panel de administración' : 'Pantalla Admin'}
         </Link>
         <Link
           to="/pantallas/docente"

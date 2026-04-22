@@ -26,6 +26,14 @@ export default function RolePage() {
     return <Navigate to="/estudiante" replace />
   }
 
+  if (role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+
+  if (role === 'docente') {
+    return <Navigate to="/docente" replace />
+  }
+
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{titleMap[role]}</h1>
