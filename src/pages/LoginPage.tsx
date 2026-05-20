@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { resolveRoleByEmail, saveSession, type UserRole } from '../auth'
+import { saveSession, saveToken, type UserRole } from '../auth'
+import { apiLogin } from '../services/api'
 
 const EMAIL_DOMAIN = '@unilibre.edu.co'
 
 function getHomeByRole(role: UserRole) {
-  // Define a que modulo entra cada rol luego de autenticarse.
   if (role === 'admin') return '/admin'
   if (role === 'docente') return '/docente'
   return '/estudiante'
 }
 
 export default function LoginPage() {
-  // Hook de navegación para redireccionar luego de login correcto.
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -21,45 +20,42 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const cleanedEmail = email.trim().toLowerCase()
-  const hasValidEmail = useMemo(
-    // Regla simple: solo correo institucional.
-    () => cleanedEmail.endsWith(EMAIL_DOMAIN),
-    [cleanedEmail],
-  )
+  const hasValidEmail = useMemo(() => cleanedEmail.endsWith(EMAIL_DOMAIN), [cleanedEmail])
+
   const recoverySent = (location.state as { recoverySent?: boolean; recoveryEmail?: string } | null)?.recoverySent
   const recoveryEmail = (location.state as { recoverySent?: boolean; recoveryEmail?: string } | null)?.recoveryEmail
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    // Flujo de validacion basica + persistencia de sesion local.
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
 
     if (!cleanedEmail || !password) {
-      setError('Debes completar correo y contrasena.')
+      setError('Debes completar correo y contraseña.')
       return
     }
-
     if (!hasValidEmail) {
       setError(`Usa tu correo institucional (${EMAIL_DOMAIN}).`)
       return
     }
-
     if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.')
+      setError('La contraseña debe tener al menos 6 caracteres.')
       return
     }
 
-    const role = resolveRoleByEmail(cleanedEmail)
-    // Se guarda sesion en localStorage (helper en auth.ts).
-    saveSession({
-      email: cleanedEmail,
-      role,
-      remember,
-    })
-
-    navigate(getHomeByRole(role), { replace: true })
+    setLoading(true)
+    try {
+      const { token, user } = await apiLogin(cleanedEmail, password)
+      saveToken(token)
+      saveSession({ id: user.id, email: user.email, role: user.role, nombre: user.nombre, iniciales: user.iniciales, remember })
+      navigate(getHomeByRole(user.role), { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -88,10 +84,11 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            disabled={loading}
           />
 
           <label className="mt-2 text-sm font-semibold text-slate-900" htmlFor="password">
-            Contrasena
+            Contraseña
           </label>
           <div className="relative">
             <input
@@ -102,11 +99,12 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
+              disabled={loading}
             />
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-rose-700 hover:text-rose-800"
               type="button"
-              onClick={() => setShowPassword((value) => !value)}
+              onClick={() => setShowPassword((v) => !v)}
             >
               {showPassword ? 'Ocultar' : 'Ver'}
             </button>
@@ -119,11 +117,12 @@ export default function LoginPage() {
                 type="checkbox"
                 checked={remember}
                 onChange={(event) => setRemember(event.target.checked)}
+                disabled={loading}
               />
               Mantener sesion iniciada
             </label>
             <Link to="/recuperar-contrasena" className="text-sm font-semibold text-rose-700 hover:text-rose-800">
-              Olvidaste tu contrasena?
+              Olvidaste tu contraseña?
             </Link>
           </div>
 
@@ -135,11 +134,17 @@ export default function LoginPage() {
           {error ? <p className="mt-1 text-sm font-semibold text-rose-600">{error}</p> : null}
 
           <button
-            className="mt-3 rounded-xl bg-rose-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-800"
+            className="mt-3 rounded-xl bg-rose-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
             type="submit"
+            disabled={loading}
           >
-            Iniciar Sesion
+            {loading ? 'Ingresando...' : 'Iniciar Sesion'}
           </button>
+
+          <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <strong>Demo:</strong> ana.lopez@unilibre.edu.co / admin123 &nbsp;·&nbsp;
+            alberto.martinez@unilibre.edu.co / docente123
+          </p>
         </form>
       </section>
     </main>

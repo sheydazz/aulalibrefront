@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { MOCK_OFERTA_MATERIAS, type ItemHorarioMateria } from '../data/adminMockData'
+import { apiGetScheduleOffer, type ApiGroup } from '../services/api'
 import {
   DAY_LABELS,
   SCHEDULE_BY_DAY,
@@ -45,8 +45,8 @@ function normalizeDocente(s: string) {
   return s.trim().toLowerCase().replace(/[.,\s]+/g, '')
 }
 
-function findOfertaMateria(id: string) {
-  return MOCK_OFERTA_MATERIAS.find((m) => m.id === id)
+function findOfertaMateria(oferta: ApiGroup[], id: string): ApiGroup | undefined {
+  return oferta.find((m) => m.id === id)
 }
 
 function simulatePlacement(
@@ -69,29 +69,27 @@ function simulatePlacement(
 }
 
 function validatePlacement(
+  oferta: ApiGroup[],
   map: Record<string, string | null>,
   slotIdx: number,
   dayIdx: number,
   materiaId: string,
 ): { ok: true } | { ok: false; reason: string } {
-  // Reglas minimas del constructor:
-  // 1) No permitir clase en almuerzo.
-  // 2) Evitar que el mismo docente se cruce en la misma franja.
   const slot = BUILDER_SLOTS[slotIdx]
   if (!slot || slot.locked) return { ok: false, reason: 'El bloque de almuerzo no admite clases.' }
-  const materia = findOfertaMateria(materiaId)
+  const materia = findOfertaMateria(oferta, materiaId)
   if (!materia) return { ok: false, reason: 'Materia no encontrada.' }
 
   const sim = simulatePlacement(map, slotIdx, dayIdx, materiaId)
-  const docente = materia.docente.trim()
+  const docente = (materia.docente ?? '').trim()
   if (docente && docente !== '—') {
     const norm = normalizeDocente(docente)
     for (let d = 0; d < BUILDER_DAYS.length; d++) {
       if (d === dayIdx) continue
       const otherId = sim[builderCellKey(slotIdx, d)]
       if (!otherId) continue
-      const other = findOfertaMateria(otherId)
-      if (other && normalizeDocente(other.docente) === norm) {
+      const other = findOfertaMateria(oferta, otherId)
+      if (other && normalizeDocente(other.docente ?? '') === norm) {
         return { ok: false, reason: `Cruce de docente: ${docente} ya ocupa esta franja.` }
       }
     }
@@ -104,7 +102,12 @@ function getBuilderStorageKey(selection: string) {
 }
 
 export default function StudentDashboardTailwindPage() {
-  // Estado de la vista de horario "normal" (lectura del horario del estudiante).
+  const [oferta, setOferta] = useState<ApiGroup[]>([])
+
+  useEffect(() => {
+    apiGetScheduleOffer().then(setOferta).catch(() => {})
+  }, [])
+
   const [day, setDay] = useState<DayKey>('lun')
   const [programa, setPrograma] = useState('Ingeniería de Sistemas')
   const [semestreGrupo, setSemestreGrupo] = useState('5to Semestre - Grupo A')
@@ -121,8 +124,7 @@ export default function StudentDashboardTailwindPage() {
   const [builderMessage, setBuilderMessage] = useState<string | null>(null)
 
   const builderOptions = useMemo(() => {
-    // Genera opciones unicas de semestre-grupo a partir del mock de oferta.
-    const combos = new Set(MOCK_OFERTA_MATERIAS.map((m) => `${m.semestreNum}-${m.grupoSeccion}`))
+    const combos = new Set(oferta.map((m) => `${m.semestreNum}-${m.grupoSeccion}`))
     return [...combos]
       .map((key) => {
         const [semestreNum, grupoSeccion] = key.split('-')
@@ -132,14 +134,13 @@ export default function StudentDashboardTailwindPage() {
         }
       })
       .sort((a, b) => a.value.localeCompare(b.value, 'es'))
-  }, [])
+  }, [oferta])
 
   const builderCatalog = useMemo(() => {
-    // Catálogo de materias que SI pertenecen al semestre/grupo seleccionado.
     const [semestreStr, grupoSeccion] = builderSelection.split('-')
     const semestreNum = Number(semestreStr)
-    return MOCK_OFERTA_MATERIAS.filter((m) => m.semestreNum === semestreNum && m.grupoSeccion === grupoSeccion)
-  }, [builderSelection])
+    return oferta.filter((m) => m.semestreNum === semestreNum && m.grupoSeccion === grupoSeccion)
+  }, [builderSelection, oferta])
 
   useEffect(() => {
     // Cuando cambia semestre/grupo, intenta restaurar un borrador local.
@@ -174,8 +175,8 @@ export default function StudentDashboardTailwindPage() {
     return builderCatalog.filter((m) => builderPendingIds.has(m.id)).filter(
       (m) =>
         !q ||
-        m.asignatura.toLowerCase().includes(q) ||
-        m.docente.toLowerCase().includes(q) ||
+        (m.asignatura ?? '').toLowerCase().includes(q) ||
+        (m.docente ?? '').toLowerCase().includes(q) ||
         m.semestre.toLowerCase().includes(q),
     )
   }, [builderCatalog, builderPendingIds, builderSearch])
@@ -183,7 +184,7 @@ export default function StudentDashboardTailwindPage() {
   const onBuilderPlace = (slotIdx: number, dayIdx: number, materiaId: string) => {
     // Intenta ubicar una materia en una celda; si falla validacion muestra motivo.
     const key = builderCellKey(slotIdx, dayIdx)
-    const v = validatePlacement(builderAssignments, slotIdx, dayIdx, materiaId)
+    const v = validatePlacement(oferta, builderAssignments, slotIdx, dayIdx, materiaId)
     if (v.ok === false) {
       setBuilderMessage(v.reason)
       return
@@ -240,7 +241,7 @@ export default function StudentDashboardTailwindPage() {
       e.dataTransfer.dropEffect = 'none'
       return
     }
-    const v = validatePlacement(builderAssignments, slotIdx, dayIdx, builderDraggingId)
+    const v = validatePlacement(oferta, builderAssignments, slotIdx, dayIdx, builderDraggingId)
     setBuilderDragOverCell({ key: builderCellKey(slotIdx, dayIdx), valid: v.ok })
     e.dataTransfer.dropEffect = v.ok ? 'move' : 'none'
   }
@@ -377,8 +378,8 @@ export default function StudentDashboardTailwindPage() {
                       onDragEnd={onBuilderDragEnd}
                       className="cursor-grab rounded-lg border border-rose-200 bg-white p-3 text-xs active:cursor-grabbing"
                     >
-                      <p className="font-bold text-slate-900">{m.asignatura}</p>
-                      <p className="mt-1 text-slate-600">{m.docente}</p>
+                      <p className="font-bold text-slate-900">{m.asignatura ?? 'Asignatura sin nombre'}</p>
+                      <p className="mt-1 text-slate-600">{m.docente ?? 'Sin docente asignado'}</p>
                       <p className="mt-1 text-slate-500">{m.horas} h semanales</p>
                     </li>
                   ))}
@@ -411,7 +412,7 @@ export default function StudentDashboardTailwindPage() {
                         {BUILDER_DAYS.map((_, dayIdx) => {
                           const key = builderCellKey(slotIdx, dayIdx)
                           const materiaId = builderAssignments[key]
-                          const m: ItemHorarioMateria | null = materiaId ? (findOfertaMateria(materiaId) ?? null) : null
+                          const m: ApiGroup | null = materiaId ? (findOfertaMateria(oferta, materiaId) ?? null) : null
                           const isOver = builderDragOverCell?.key === key
                           const validOver = builderDragOverCell?.valid ?? false
 
@@ -461,8 +462,8 @@ export default function StudentDashboardTailwindPage() {
                                     >
                                       ✕
                                     </button>
-                                    <p className="pr-6 font-bold text-slate-900">{m.asignatura}</p>
-                                    <p className="mt-1 text-[10px] text-slate-600">{m.docente}</p>
+                                    <p className="pr-6 font-bold text-slate-900">{m.asignatura ?? 'Asignatura sin nombre'}</p>
+                                    <p className="mt-1 text-[10px] text-slate-600">{m.docente ?? 'Sin docente asignado'}</p>
                                   </div>
                                 ) : (
                                   <span className="flex min-h-[62px] items-center justify-center">Soltar aquí</span>

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import {
-  MOCK_ESPACIOS,
-  MOCK_OFERTA_MATERIAS,
-  MOCK_PROGRAMAS,
-  type ItemHorarioMateria,
-} from '../../data/adminMockData'
-
-const DEFAULT_SALON_CODIGO = MOCK_ESPACIOS[0]?.codigo ?? 'B-201'
+  apiGetScheduleOffer,
+  apiGetScheduleAssignments,
+  apiSaveScheduleAssignments,
+  apiGetSpaces,
+  apiGetPrograms,
+  type ApiGroup,
+  type ApiSpace,
+  type ApiProgram,
+} from '../../services/api'
 
 const TIME_SLOTS = [
   { id: 'b0', label: '07:00 – 09:00', locked: false },
@@ -25,12 +27,12 @@ function normalizeDocente(s: string) {
   return s.trim().toLowerCase().replace(/[.,\s]+/g, '')
 }
 
-function findMateria(id: string): ItemHorarioMateria | undefined {
-  return MOCK_OFERTA_MATERIAS.find((g) => g.id === id)
+function findMateria(oferta: ApiGroup[], id: string): ApiGroup | undefined {
+  return oferta.find((g) => g.id === id)
 }
 
-function findSalon(codigo: string) {
-  return MOCK_ESPACIOS.find((s) => s.codigo === codigo)
+function findSalon(espacios: ApiSpace[], codigo: string): ApiSpace | undefined {
+  return espacios.find((s) => s.codigo === codigo)
 }
 
 const DRAG_TYPE = 'application/x-aulalibre-grupo'
@@ -53,6 +55,7 @@ function simulatePlacement(
 }
 
 function validatePlacement(
+  oferta: ApiGroup[],
   map: Record<string, string | null>,
   slotIdx: number,
   dayIdx: number,
@@ -62,19 +65,19 @@ function validatePlacement(
   if (!slot || slot.locked) {
     return { ok: false, reason: 'Este bloque no admite clases (almuerzo / bloqueado).' }
   }
-  const grupo = findMateria(grupoId)
+  const grupo = findMateria(oferta, grupoId)
   if (!grupo) return { ok: false, reason: 'Materia no encontrada.' }
 
   const sim = simulatePlacement(map, slotIdx, dayIdx, grupoId)
-  const doc = grupo.docente.trim()
+  const doc = (grupo.docente ?? '').trim()
   if (doc && doc !== '—') {
     const norm = normalizeDocente(doc)
     for (let d = 0; d < DAYS.length; d++) {
       if (d === dayIdx) continue
       const otherId = sim[cellKey(slotIdx, d)]
       if (!otherId) continue
-      const other = findMateria(otherId)
-      if (other && normalizeDocente(other.docente) === norm) {
+      const other = findMateria(oferta, otherId)
+      if (other && normalizeDocente(other.docente ?? '') === norm) {
         return {
           ok: false,
           reason: `Cruce de docente: ${grupo.docente} ya está asignado en este mismo horario en otra columna.`,
@@ -85,29 +88,47 @@ function validatePlacement(
   return { ok: true }
 }
 
-const firstOferta = MOCK_OFERTA_MATERIAS[0]
-
 export default function AdminScheduleBuilderPage() {
-  // Constructor visual: arma horario por programa/semestre/grupo.
-  const [programaId, setProgramaId] = useState(firstOferta.programaId)
-  const [semestreNum, setSemestreNum] = useState(firstOferta.semestreNum)
-  const [grupoSeccion, setGrupoSeccion] = useState(firstOferta.grupoSeccion)
+  const [oferta, setOferta] = useState<ApiGroup[]>([])
+  const [espacios, setEspacios] = useState<ApiSpace[]>([])
+  const [programas, setProgramas] = useState<ApiProgram[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([apiGetScheduleOffer(), apiGetSpaces(), apiGetPrograms()])
+      .then(([o, e, p]) => { setOferta(o); setEspacios(e); setProgramas(p) })
+      .catch(() => {})
+      .finally(() => setDataLoading(false))
+  }, [])
+
+  const defaultSalonCodigo = espacios[0]?.codigo ?? ''
+
+  const [programaId, setProgramaId] = useState('')
+  const [semestreNum, setSemestreNum] = useState(0)
+  const [grupoSeccion, setGrupoSeccion] = useState('')
+
+  useEffect(() => {
+    if (oferta.length > 0 && !programaId) {
+      const first = oferta[0]
+      setProgramaId(first.programaId ?? '')
+      setSemestreNum(first.semestreNum ?? 1)
+      setGrupoSeccion(first.grupoSeccion ?? '')
+    }
+  }, [oferta, programaId])
 
   const semestresOpciones = useMemo(() => {
-    // Lista de semestres disponibles para el programa seleccionado.
-    const s = new Set(MOCK_OFERTA_MATERIAS.filter((m) => m.programaId === programaId).map((m) => m.semestreNum))
-    return [...s].sort((a, b) => a - b)
-  }, [programaId])
+    const s = new Set(oferta.filter((m) => m.programaId === programaId).map((m) => m.semestreNum ?? 0))
+    return [...s].filter(Boolean).sort((a, b) => a - b)
+  }, [programaId, oferta])
 
   const gruposOpciones = useMemo(() => {
-    // Lista de grupos existentes dentro del semestre actual.
     const s = new Set(
-      MOCK_OFERTA_MATERIAS.filter((m) => m.programaId === programaId && m.semestreNum === semestreNum).map(
-        (m) => m.grupoSeccion,
-      ),
+      oferta
+        .filter((m) => m.programaId === programaId && m.semestreNum === semestreNum)
+        .map((m) => m.grupoSeccion ?? ''),
     )
-    return [...s].sort()
-  }, [programaId, semestreNum])
+    return [...s].filter(Boolean).sort()
+  }, [programaId, semestreNum, oferta])
 
   useEffect(() => {
     if (semestresOpciones.length > 0 && !semestresOpciones.includes(semestreNum)) {
@@ -122,12 +143,11 @@ export default function AdminScheduleBuilderPage() {
   }, [programaId, semestreNum, gruposOpciones, grupoSeccion])
 
   const catalog = useMemo(
-    // Catálogo de materias específico para combinación seleccionada.
     () =>
-      MOCK_OFERTA_MATERIAS.filter(
+      oferta.filter(
         (m) => m.programaId === programaId && m.semestreNum === semestreNum && m.grupoSeccion === grupoSeccion,
       ),
-    [programaId, semestreNum, grupoSeccion],
+    [programaId, semestreNum, grupoSeccion, oferta],
   )
 
   const [assignments, setAssignments] = useState<Record<string, string | null>>({})
@@ -137,29 +157,49 @@ export default function AdminScheduleBuilderPage() {
   const [dragOverCell, setDragOverCell] = useState<{ key: string; valid: boolean } | null>(null)
   const [draggingGrupoId, setDraggingGrupoId] = useState<string | null>(null)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
+  const [savingSchedule, setSavingSchedule] = useState(false)
 
   useEffect(() => {
-    setAssignments({})
-    setSalonByCell({})
-    setPendingIds(new Set(catalog.map((c) => c.id)))
-    setLastMessage(null)
-  }, [catalog])
+    if (!programaId || !semestreNum || !grupoSeccion) return
+    apiGetScheduleAssignments({ programaId, semestreNum, grupoSeccion, status: 'draft' })
+      .then((saved) => {
+        const nextAssignments: Record<string, string | null> = {}
+        const nextSalons: Record<string, string> = {}
+        const validIds = new Set(catalog.map((c) => c.id))
+        for (const item of saved) {
+          if (!validIds.has(item.groupId)) continue
+          const key = cellKey(item.slotIndex, item.dayIndex)
+          nextAssignments[key] = item.groupId
+          nextSalons[key] = item.spaceCodigo
+        }
+        setAssignments(nextAssignments)
+        setSalonByCell(nextSalons)
+        const usedIds = new Set(saved.map((item) => item.groupId))
+        setPendingIds(new Set(catalog.map((c) => c.id).filter((id) => !usedIds.has(id))))
+        setLastMessage(null)
+      })
+      .catch(() => {
+        setAssignments({})
+        setSalonByCell({})
+        setPendingIds(new Set(catalog.map((c) => c.id)))
+        setLastMessage(null)
+      })
+  }, [catalog, programaId, semestreNum, grupoSeccion])
 
   const pendingList = useMemo(() => {
     const q = search.trim().toLowerCase()
     return catalog.filter((g) => pendingIds.has(g.id)).filter(
       (g) =>
         !q ||
-        g.asignatura.toLowerCase().includes(q) ||
-        g.docente.toLowerCase().includes(q) ||
+        (g.asignatura ?? '').toLowerCase().includes(q) ||
+        (g.docente ?? '').toLowerCase().includes(q) ||
         g.semestre.toLowerCase().includes(q),
     )
   }, [catalog, pendingIds, search])
 
   const placeInCell = (slotIdx: number, dayIdx: number, grupoId: string) => {
-    // Valida y ubica materia en celda; si estaba en otra, la mueve.
     const key = cellKey(slotIdx, dayIdx)
-    const v = validatePlacement(assignments, slotIdx, dayIdx, grupoId)
+    const v = validatePlacement(oferta, assignments, slotIdx, dayIdx, grupoId)
     if (v.ok === false) {
       setLastMessage(v.reason)
       return
@@ -170,7 +210,7 @@ export default function AdminScheduleBuilderPage() {
     setAssignments(newMap)
     setSalonByCell((prev) => {
       const next = { ...prev }
-      if (!next[key]) next[key] = DEFAULT_SALON_CODIGO
+      if (!next[key]) next[key] = defaultSalonCodigo
       return next
     })
     setPendingIds((ids) => {
@@ -200,7 +240,6 @@ export default function AdminScheduleBuilderPage() {
   }
 
   const setSalonForCell = (slotIdx: number, dayIdx: number, salonCodigo: string) => {
-    // Permite escoger salón por celda/materia en el tablero.
     const key = cellKey(slotIdx, dayIdx)
     setSalonByCell((prev) => ({ ...prev, [key]: salonCodigo }))
     setLastMessage(null)
@@ -231,7 +270,7 @@ export default function AdminScheduleBuilderPage() {
       e.dataTransfer.dropEffect = 'none'
       return
     }
-    const v = validatePlacement(assignments, slotIdx, dayIdx, grupoId)
+    const v = validatePlacement(oferta, assignments, slotIdx, dayIdx, grupoId)
     setDragOverCell({ key: cellKey(slotIdx, dayIdx), valid: v.ok })
     e.dataTransfer.dropEffect = v.ok ? 'move' : 'none'
   }
@@ -249,19 +288,61 @@ export default function AdminScheduleBuilderPage() {
     const list: { id: string; text: string }[] = []
     for (const [key, gid] of Object.entries(assignments)) {
       if (!gid) continue
-      const g = findMateria(gid)
-      const salonCodigo = salonByCell[key] ?? DEFAULT_SALON_CODIGO
-      const salon = findSalon(salonCodigo)
+      const g = findMateria(oferta, gid)
+      const salonCodigo = salonByCell[key] ?? defaultSalonCodigo
+      const salon = findSalon(espacios, salonCodigo)
       const capacidad = salon?.capacidad ?? 0
-      if (g && g.estudiantes > capacidad) {
+      if (g && (g.estudiantes ?? 0) > capacidad) {
         list.push({
           id: `${gid}-${key}`,
-          text: `“${g.asignatura}” (${g.estudiantes} est.) supera la capacidad de ${salonCodigo} (${capacidad}).`,
+          text: `"${g.asignatura}" (${g.estudiantes} est.) supera la capacidad de ${salonCodigo} (${capacidad}).`,
         })
       }
     }
     return list
-  }, [assignments, salonByCell])
+  }, [assignments, salonByCell, oferta, espacios, defaultSalonCodigo])
+
+  const persistSchedule = async (status: 'draft' | 'published') => {
+    if (!programaId || !semestreNum || !grupoSeccion) return
+    setSavingSchedule(true)
+    setLastMessage(null)
+    try {
+      const payload = Object.entries(assignments)
+        .flatMap(([key, groupId]) => {
+          if (!groupId) return []
+          const [slotIdx, dayIdx] = key.split('-').map(Number)
+          return [{
+            groupId,
+            spaceCodigo: salonByCell[key] ?? defaultSalonCodigo,
+            dayIndex: dayIdx,
+            slotIndex: slotIdx,
+          }]
+        })
+      const result = await apiSaveScheduleAssignments({
+        programaId,
+        semestreNum,
+        grupoSeccion,
+        status,
+        assignments: payload,
+      })
+      setLastMessage(`${result.message}: ${result.count} asignaciones.`)
+      if (status === 'published') {
+        setEspacios(await apiGetSpaces())
+      }
+    } catch (err) {
+      setLastMessage(err instanceof Error ? err.message : 'Error al guardar horario')
+    } finally {
+      setSavingSchedule(false)
+    }
+  }
+
+  if (dataLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-slate-500">
+        Cargando datos del constructor de horarios...
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -289,14 +370,16 @@ export default function AdminScheduleBuilderPage() {
           <button
             type="button"
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50"
-            onClick={() => setLastMessage('Borrador guardado (demo local).')}
+            disabled={savingSchedule}
+            onClick={() => persistSchedule('draft')}
           >
-            Guardar borrador
+            {savingSchedule ? 'Guardando...' : 'Guardar borrador'}
           </button>
           <button
             type="button"
             className="rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
-            onClick={() => setLastMessage('Publicación simulada: el horario quedaría visible para docentes y estudiantes.')}
+            disabled={savingSchedule}
+            onClick={() => persistSchedule('published')}
           >
             Publicar horario
           </button>
@@ -311,7 +394,7 @@ export default function AdminScheduleBuilderPage() {
             value={programaId}
             onChange={(e) => setProgramaId(e.target.value)}
           >
-            {MOCK_PROGRAMAS.map((p) => (
+            {programas.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
               </option>
@@ -377,8 +460,7 @@ export default function AdminScheduleBuilderPage() {
           <ul className="mt-3 space-y-2">
             {catalog.length === 0 ? (
               <li className="rounded-xl border border-dashed border-amber-200 bg-amber-50/50 p-4 text-center text-xs text-amber-950">
-                No hay materias en oferta para esta combinación en la demo. Prueba otro programa (p. ej. Sistemas o
-                Industrial) o revisa semestre/grupo.
+                No hay materias en oferta para esta combinación. Prueba otro programa o revisa semestre/grupo.
               </li>
             ) : pendingList.length === 0 ? (
               <li className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
@@ -398,7 +480,7 @@ export default function AdminScheduleBuilderPage() {
                   <p className="text-[10px] font-bold text-slate-500">{g.semestre}</p>
                   <p className="font-bold text-slate-900">{g.asignatura}</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {g.horas} h · {g.docente} · {g.estudiantes} est.
+                    {g.horas} h · {g.docente ?? '—'} · {g.estudiantes ?? 0} est.
                   </p>
                   {g.alerta === 'sin_docente' ? (
                     <p className="mt-2 text-xs font-bold text-amber-800">⚠ Sin docente asignado</p>
@@ -430,8 +512,8 @@ export default function AdminScheduleBuilderPage() {
                   {DAYS.map((_, dayIdx) => {
                     const key = cellKey(slotIdx, dayIdx as number)
                     const gid = assignments[key]
-                    const g = gid ? findMateria(gid) : null
-                    const selectedSalon = salonByCell[key] ?? DEFAULT_SALON_CODIGO
+                    const g = gid ? findMateria(oferta, gid) : null
+                    const selectedSalon = salonByCell[key] ?? defaultSalonCodigo
                     const isOver = dragOverCell?.key === key
                     const validOver = dragOverCell?.valid ?? false
 
@@ -484,7 +566,7 @@ export default function AdminScheduleBuilderPage() {
                               </button>
                               <p className="pr-6 font-bold text-slate-900">{g.asignatura}</p>
                               <p className="mt-1 text-[10px] text-slate-600">
-                                {g.docente} · {g.estudiantes} est.
+                                {g.docente ?? '—'} · {g.estudiantes ?? 0} est.
                               </p>
                               <label className="mt-2 block text-[10px] font-semibold text-slate-500">
                                 Salón
@@ -494,7 +576,7 @@ export default function AdminScheduleBuilderPage() {
                                   onChange={(e) => setSalonForCell(slotIdx, dayIdx as number, e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  {MOCK_ESPACIOS.map((s) => (
+                                  {espacios.map((s) => (
                                     <option key={s.codigo} value={s.codigo}>
                                       {s.codigo} ({s.capacidad})
                                     </option>
@@ -544,3 +626,4 @@ export default function AdminScheduleBuilderPage() {
     </div>
   )
 }
+

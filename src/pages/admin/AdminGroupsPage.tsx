@@ -1,37 +1,65 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AddProgramModal, AddSubjectModal } from '../../components/admin/ProgramSubjectModals'
-import { MOCK_GRUPOS_POO, MOCK_PROGRAMAS } from '../../data/adminMockData'
+import {
+  apiGetGroups,
+  apiGetPrograms,
+  apiCreateGroup,
+  type ApiGroup,
+  type ApiProgram,
+} from '../../services/api'
 
 export default function AdminGroupsPage() {
-  // Gestión de grupos por asignatura (cupos, docente y estado).
+  const [grupos, setGrupos] = useState<ApiGroup[]>([])
+  const [programas, setProgramas] = useState<ApiProgram[]>([])
+  const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [openProgramaModal, setOpenProgramaModal] = useState(false)
   const [openAsignaturaModal, setOpenAsignaturaModal] = useState(false)
   const [openGrupoModal, setOpenGrupoModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    Promise.all([apiGetGroups(), apiGetPrograms()])
+      .then(([g, p]) => { setGrupos(g); setProgramas(p) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
   const rows = useMemo(() => {
-    // Búsqueda flexible sobre listado de grupos.
     const q = busqueda.trim().toLowerCase()
-    if (!q) return MOCK_GRUPOS_POO
-    return MOCK_GRUPOS_POO.filter(
+    if (!q) return grupos
+    return grupos.filter(
       (g) =>
         g.nombre.toLowerCase().includes(q) ||
         g.codigo.includes(q) ||
         (g.docente && g.docente.toLowerCase().includes(q)),
     )
-  }, [busqueda])
+  }, [busqueda, grupos])
 
-  const totalCupo = MOCK_GRUPOS_POO.reduce((a, g) => a + g.cupoMax, 0)
+  const totalCupo = grupos.reduce((a, g) => a + g.cupoMax, 0)
 
-  const submitGrupo = (e: FormEvent<HTMLFormElement>) => {
-    // En demo solo cierra modal; luego se conecta a API.
+  const submitGrupo = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setOpenGrupoModal(false)
+    const fd = new FormData(e.currentTarget)
+    setSaving(true)
+    try {
+      const nuevo = await apiCreateGroup({
+        codigo: String(fd.get('codigoGrupo')),
+        cupoMax: Number(fd.get('cupoMaximo')),
+        cupoPlaneado: Number(fd.get('cupoPlaneado')),
+        estadoProg: fd.get('estadoProgramacion') === 'Horario asignado' ? 'horario' : 'pendiente',
+      })
+      setGrupos((prev) => [...prev, nuevo])
+      setOpenGrupoModal(false)
+    } catch {
+      // keep modal open on error
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      {/* Encabezado con acciones principales del módulo. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Gestión de grupos por asignatura</h2>
@@ -80,8 +108,9 @@ export default function AdminGroupsPage() {
           <label className="text-sm font-semibold text-slate-800">
             Programa académico / Asignatura
             <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100">
-              <option>Ingeniería de Sistemas — Programación Orientada a Objetos (IS301)</option>
-              <option>Ingeniería de Sistemas — Estructuras de Datos (IS302)</option>
+              {programas.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-800">
@@ -94,12 +123,8 @@ export default function AdminGroupsPage() {
         </div>
 
         <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-800">
-          <p className="font-bold text-slate-900">Programación Orientada a Objetos</p>
-          <p className="mt-1 text-slate-600">
-            Código <span className="font-mono font-bold">IS301</span> · 4 créditos · Intensidad 4 h/semana
-          </p>
-          <div className="mt-3 flex flex-wrap gap-6 text-xs font-bold uppercase tracking-wide text-slate-700">
-            <span>Total grupos: {MOCK_GRUPOS_POO.length}</span>
+          <div className="flex flex-wrap gap-6 text-xs font-bold uppercase tracking-wide text-slate-700">
+            <span>Total grupos: {grupos.length}</span>
             <span>Cupo total plan: {totalCupo}</span>
           </div>
         </div>
@@ -109,8 +134,9 @@ export default function AdminGroupsPage() {
       <AddSubjectModal
         open={openAsignaturaModal}
         onClose={() => setOpenAsignaturaModal(false)}
-        programOptions={MOCK_PROGRAMAS.map((p) => p.nombre)}
+        programOptions={programas.map((p) => p.nombre)}
       />
+
       {openGrupoModal ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
           <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
@@ -126,10 +152,10 @@ export default function AdminGroupsPage() {
                     required
                     name="programaAsignatura"
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                    defaultValue="Ingeniería de Sistemas — Programación Orientada a Objetos (IS301)"
                   >
-                    <option>Ingeniería de Sistemas — Programación Orientada a Objetos (IS301)</option>
-                    <option>Ingeniería de Sistemas — Estructuras de Datos (IS302)</option>
+                    {programas.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="text-sm font-semibold text-slate-800">
@@ -191,7 +217,6 @@ export default function AdminGroupsPage() {
                 </label>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                
                 <label className="text-sm font-semibold text-slate-800">
                   Estado de programación
                   <select
@@ -221,8 +246,12 @@ export default function AdminGroupsPage() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 rounded-xl bg-red-700 py-2.5 text-sm font-bold text-white hover:bg-red-800">
-                  Guardar grupo
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-red-700 py-2.5 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-60"
+                >
+                  {saving ? 'Guardando...' : 'Guardar grupo'}
                 </button>
               </div>
             </form>
@@ -244,52 +273,57 @@ export default function AdminGroupsPage() {
             />
           </label>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Código grupo</th>
-                <th className="px-4 py-3">Cupo máx.</th>
-                <th className="px-4 py-3">Cupo planeado</th>
-                <th className="px-4 py-3">Estado programación</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((g) => (
-                <tr key={g.codigo} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3">
-                    <p className="font-mono text-xs font-bold text-slate-500">{g.codigo}</p>
-                    <p className="font-semibold text-slate-900">{g.nombre}</p>
-                    <p className="text-xs text-slate-500">{g.semestre}</p>
-                  </td>
-                  <td className="px-4 py-3 font-semibold">{g.cupoMax}</td>
-                  <td className="px-4 py-3 font-semibold">{g.cupoPlaneado}</td>
-               
-                  <td className="px-4 py-3">
-                    {g.estadoProg === 'horario' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                        📅 Horario asignado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
-                        📅 Por programar
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-500">
-                    <button type="button" className="p-1 hover:text-red-700" aria-label="Editar">
-                      ✏️
-                    </button>
-                    <button type="button" className="p-1 hover:text-red-700" aria-label="Más">
-                      ⋮
-                    </button>
-                  </td>
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-sm text-slate-500">
+            Cargando grupos...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Código grupo</th>
+                  <th className="px-4 py-3">Cupo máx.</th>
+                  <th className="px-4 py-3">Cupo planeado</th>
+                  <th className="px-4 py-3">Estado programación</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((g) => (
+                  <tr key={g.id ?? g.codigo} className="hover:bg-slate-50/80">
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-xs font-bold text-slate-500">{g.codigo}</p>
+                      <p className="font-semibold text-slate-900">{g.nombre}</p>
+                      <p className="text-xs text-slate-500">{g.semestre}</p>
+                    </td>
+                    <td className="px-4 py-3 font-semibold">{g.cupoMax}</td>
+                    <td className="px-4 py-3 font-semibold">{g.cupoPlaneado}</td>
+                    <td className="px-4 py-3">
+                      {g.estadoProg === 'horario' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                          📅 Horario asignado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
+                          📅 Por programar
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-500">
+                      <button type="button" className="p-1 hover:text-red-700" aria-label="Editar">
+                        ✏️
+                      </button>
+                      <button type="button" className="p-1 hover:text-red-700" aria-label="Más">
+                        ⋮
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>Mostrando {rows.length} grupos.</span>
           <div className="flex gap-2">
