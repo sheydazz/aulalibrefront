@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiDeleteUser, type ApiUser } from '../../services/api'
 
-type RolTag = 'Administrador' | 'Secretaria' | 'Docente'
+type RolTag = 'Administrador' | 'Secretaria' | 'Docente' | 'Estudiante'
 
 const ROL_STYLES: Record<RolTag, string> = {
   Administrador: 'bg-red-100 text-red-800 ring-red-200',
   Secretaria: 'bg-sky-100 text-sky-800 ring-sky-200',
   Docente: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+  Estudiante: 'bg-violet-100 text-violet-800 ring-violet-200',
 }
 
 function RolBadge({ rol }: { rol: string }) {
@@ -248,6 +249,7 @@ export default function AdminUsersPage() {
                 <option>Administrador</option>
                 <option>Secretaria</option>
                 <option>Docente</option>
+                <option>Estudiante</option>
               </select>
             </label>
             <fieldset>
