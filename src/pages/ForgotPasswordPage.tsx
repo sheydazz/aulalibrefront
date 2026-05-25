@@ -24,9 +24,9 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     try {
       await apiForgotPassword(email)
-      navigate('/login', { replace: true, state: { recoverySent: true, recoveryEmail: email } })
+      navigate('/', { replace: true, state: { recoverySent: true, recoveryEmail: email } })
     } catch {
-      navigate('/login', { replace: true, state: { recoverySent: true, recoveryEmail: email } })
+      navigate('/', { replace: true, state: { recoverySent: true, recoveryEmail: email } })
     } finally {
       setLoading(false)
     }
@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
 
-        <Link to="/login" className="mt-4 inline-block text-sm font-semibold text-rose-700 hover:text-rose-800">
+        <Link to="/" className="mt-4 inline-block text-sm font-semibold text-rose-700 hover:text-rose-800">
           Volver al login
         </Link>
       </section>

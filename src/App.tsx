@@ -18,7 +18,7 @@ import StudentDashboardTailwindPage from './pages/StudentDashboardTailwindPage'
 
 function StudentEstudianteGate() {
   const session = getSession()
-  if (!session) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/" replace />
   if (session.role !== 'estudiante') {
     return <Navigate to="/dashboard" replace />
   }
@@ -30,7 +30,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const session = getSession()
 
   if (!session) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />
+    return <Navigate to="/" state={{ from: location.pathname }} replace />
   }
 
   return children
@@ -38,14 +38,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireAdmin({ children }: { children: ReactNode }) {
   const session = getSession()
-  if (!session) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/" replace />
   if (session.role !== 'admin') return <Navigate to="/dashboard" replace />
   return children
 }
 
 function DocenteGate() {
   const session = getSession()
-  if (!session) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/" replace />
   if (session.role !== 'docente') return <Navigate to="/dashboard" replace />
   return <TeacherDashboardPage />
 }
@@ -56,7 +56,7 @@ function AppLayout({ children }: { children: ReactNode }) {
   const logout = useLogout()
 
   const hideChromeForAdmin = location.pathname.startsWith('/admin')
-  const showTopBar = session && location.pathname !== '/login' && !hideChromeForAdmin
+  const showTopBar = session && location.pathname !== '/' && !hideChromeForAdmin
 
   return (
     <>
@@ -84,7 +84,7 @@ function AppLayout({ children }: { children: ReactNode }) {
 
 function postLoginHome() {
   const session = getSession()
-  if (!session) return '/login'
+  if (!session) return '/'
   if (session.role === 'admin') return '/admin'
   if (session.role === 'docente') return '/docente'
   return '/estudiante'
@@ -97,24 +97,18 @@ function GuestRoute({ children }: { children: ReactNode }) {
   return children
 }
 
-function HomeRedirect() {
+function HomeRoute() {
   const session = getSession()
-  return <Navigate to={session ? postLoginHome() : '/login'} replace />
+  if (session) return <Navigate to={postLoginHome()} replace />
+  return <LoginPage />
 }
 
 export default function App() {
   return (
     <AppLayout>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
-        <Route
-          path="/login"
-          element={
-            <GuestRoute>
-              <LoginPage />
-            </GuestRoute>
-          }
-        />
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route
           path="/recuperar-contrasena"
           element={

@@ -7,6 +7,6 @@ export function useLogout() {
 
   return () => {
     clearSession()
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 }

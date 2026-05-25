@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { clearSession, getSession } from '../auth'
+import { getSession } from '../auth'
+import { useLogout } from '../hooks/useLogout'
 import type { UserRole } from '../auth'
 
 const titleMap: Record<UserRole, string> = {
@@ -12,8 +13,9 @@ export default function RolePage() {
   // Pantalla puente por rol: valida permisos y redirige al modulo real.
   const { role } = useParams<{ role: UserRole }>()
   const session = getSession()
+  const logout = useLogout()
 
-  if (!session) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/" replace />
   if (!role || !titleMap[role]) return <Navigate to="/dashboard" replace />
 
   const canAccess =
@@ -49,13 +51,13 @@ export default function RolePage() {
         >
           Volver al dashboard
         </Link>
-        <Link
+        <button
+          type="button"
           className="rounded-xl bg-slate-200 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-300"
-          to="/login"
-          onClick={() => clearSession()}
+          onClick={logout}
         >
           Cerrar sesion
-        </Link>
+        </button>
       </div>
     </main>
   )

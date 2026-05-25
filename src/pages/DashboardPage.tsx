@@ -5,7 +5,7 @@ export default function DashboardPage() {
   // Dashboard general de compatibilidad para perfiles no-estudiante.
   const session = getSession()
 
-  if (!session) return <Navigate to="/login" replace />
+  if (!session) return <Navigate to="/" replace />
   if (session.role === 'estudiante') {
     // Estudiante usa su propio modulo dedicado.
     return <Navigate to="/estudiante" replace />
