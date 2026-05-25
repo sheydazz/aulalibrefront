@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { clearSession, getSession } from './auth'
+import { getSession } from './auth'
+import { useLogout } from './hooks/useLogout'
 import AdminLayout from './layouts/AdminLayout'
 import DashboardPage from './pages/DashboardPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -52,6 +53,7 @@ function DocenteGate() {
 function AppLayout({ children }: { children: ReactNode }) {
   const session = getSession()
   const location = useLocation()
+  const logout = useLogout()
 
   const hideChromeForAdmin = location.pathname.startsWith('/admin')
   const showTopBar = session && location.pathname !== '/login' && !hideChromeForAdmin
@@ -64,17 +66,13 @@ function AppLayout({ children }: { children: ReactNode }) {
             <span className="text-sm font-bold tracking-wide sm:text-base">AulaLibre</span>
             <div className="flex items-center gap-3 text-xs sm:text-sm">
               <span>{session.email}</span>
-              <a
+              <button
+                type="button"
                 className="font-semibold text-rose-300 hover:text-rose-200"
-                href="/login"
-                onClick={(event) => {
-                  event.preventDefault()
-                  clearSession()
-                  window.location.assign('/login')
-                }}
+                onClick={logout}
               >
                 Salir
-              </a>
+              </button>
             </div>
           </div>
         </header>

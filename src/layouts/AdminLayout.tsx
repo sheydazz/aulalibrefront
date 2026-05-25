@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { clearSession, getSession } from '../auth'
+import { getSession } from '../auth'
+import { useLogout } from '../hooks/useLogout'
 
 const NAV = [
   { to: '/admin/usuarios', label: 'Usuarios y accesos' },
@@ -21,6 +22,7 @@ function navClass(isActive: boolean) {
 
 export default function AdminLayout() {
   const session = getSession()
+  const logout = useLogout()
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white shadow-sm">
@@ -49,10 +51,7 @@ export default function AdminLayout() {
             <button
               type="button"
               className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              onClick={() => {
-                clearSession()
-                window.location.assign('/login')
-              }}
+              onClick={logout}
             >
               Salir
             </button>
