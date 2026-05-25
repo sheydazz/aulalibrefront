@@ -17,7 +17,7 @@ import StudentDashboardTailwindPage from './pages/StudentDashboardTailwindPage'
 
 function StudentEstudianteGate() {
   const session = getSession()
-  if (!session) return null
+  if (!session) return <Navigate to="/login" replace />
   if (session.role !== 'estudiante') {
     return <Navigate to="/dashboard" replace />
   }
@@ -44,7 +44,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
 
 function DocenteGate() {
   const session = getSession()
-  if (!session) return null
+  if (!session) return <Navigate to="/login" replace />
   if (session.role !== 'docente') return <Navigate to="/dashboard" replace />
   return <TeacherDashboardPage />
 }
@@ -92,23 +92,38 @@ function postLoginHome() {
   return '/estudiante'
 }
 
-export default function App() {
+/** Lee la sesión en cada render (las rutas se actualizan al navegar). */
+function GuestRoute({ children }: { children: ReactNode }) {
   const session = getSession()
+  if (session) return <Navigate to={postLoginHome()} replace />
+  return children
+}
 
+function HomeRedirect() {
+  const session = getSession()
+  return <Navigate to={session ? postLoginHome() : '/login'} replace />
+}
+
+export default function App() {
   return (
     <AppLayout>
       <Routes>
-        <Route
-          path="/"
-          element={<Navigate to={session ? postLoginHome() : '/login'} replace />}
-        />
+        <Route path="/" element={<HomeRedirect />} />
         <Route
           path="/login"
-          element={session ? <Navigate to={postLoginHome()} replace /> : <LoginPage />}
+          element={
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
+          }
         />
         <Route
           path="/recuperar-contrasena"
-          element={session ? <Navigate to={postLoginHome()} replace /> : <ForgotPasswordPage />}
+          element={
+            <GuestRoute>
+              <ForgotPasswordPage />
+            </GuestRoute>
+          }
         />
         <Route
           path="/estudiante"
