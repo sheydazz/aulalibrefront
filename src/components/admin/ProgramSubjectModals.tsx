@@ -124,7 +124,7 @@ export function AddSubjectModal({
         await apiCreateSubject(selectedProgramId, {
           semestre, codigo, nombre, creditos,
           h_teoria: intensidad, h_practica: 0,
-          area: 'Específica', area_tone: 'emerald',
+
         })
         onSaved()
         onClose()

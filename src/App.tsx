@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import UniversidadLogo from './components/UniversidadLogo'
 import { getSession } from './auth'
 import { useLogout } from './hooks/useLogout'
 import AdminLayout from './layouts/AdminLayout'
@@ -11,6 +12,7 @@ import AdminProgramsPage from './pages/admin/AdminProgramsPage'
 import AdminScheduleBuilderPage from './pages/admin/AdminScheduleBuilderPage'
 import AdminSpacesPage from './pages/admin/AdminSpacesPage'
 import AdminTeacherPage from './pages/admin/AdminTeacherPage'
+import AdminHomePage from './pages/admin/AdminHomePage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import RolePage from './pages/RolePage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
@@ -63,7 +65,10 @@ function AppLayout({ children }: { children: ReactNode }) {
       {showTopBar ? (
         <header className="bg-zinc-900 text-slate-100">
           <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-            <span className="text-sm font-bold tracking-wide sm:text-base">AulaLibre</span>
+            <div className="flex items-center gap-2.5">
+              <UniversidadLogo size="sm" className="ring-white/25" />
+              <span className="text-sm font-bold tracking-wide sm:text-base">AulaLibre</span>
+            </div>
             <div className="flex items-center gap-3 text-xs sm:text-sm">
               <span>{session.email}</span>
               <button
@@ -151,7 +156,7 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="usuarios" replace />} />
+          <Route index element={<AdminHomePage />} />
           <Route path="usuarios" element={<AdminUsersPage />} />
           <Route path="programas" element={<AdminProgramsPage />} />
           <Route path="grupos" element={<AdminGroupsPage />} />

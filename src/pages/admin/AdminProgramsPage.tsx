@@ -168,7 +168,6 @@ export default function AdminProgramsPage() {
                     <th className="px-3 py-2">Créditos</th>
                     <th className="px-3 py-2">H. teóricas</th>
                     <th className="px-3 py-2">H. prácticas</th>
-                    <th className="px-3 py-2">Área</th>
                     <th className="px-3 py-2 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -180,11 +179,6 @@ export default function AdminProgramsPage() {
                       <td className="px-3 py-2 font-bold text-red-700">{a.creditos}</td>
                       <td className="px-3 py-2 text-slate-600">{a.h_teoria}</td>
                       <td className="px-3 py-2 text-slate-600">{a.h_practica}</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ring-1 ring-inset ${AREA_TONE_MAP[a.area_tone] ?? AREA_TONE_MAP['slate']}`}>
-                          {a.area}
-                        </span>
-                      </td>
                       <td className="px-3 py-2 text-right text-slate-500">
                         <button type="button" className="p-1 hover:text-red-700" onClick={() => handleDeleteSubject(a.id)}>🗑️</button>
                       </td>

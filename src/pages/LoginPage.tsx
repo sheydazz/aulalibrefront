@@ -59,17 +59,80 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-red-50/40 to-slate-200 p-4">
+      {/* Puntos translúcidos */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden
+        style={{
+          backgroundImage:
+            'radial-gradient(circle, rgb(185 28 28 / 0.14) 1.5px, transparent 1.5px), radial-gradient(circle, rgb(148 163 184 / 0.2) 1px, transparent 1px)',
+          backgroundSize: '32px 32px, 20px 20px',
+          backgroundPosition: '0 0, 10px 10px',
+        }}
+      />
+      {/* Ondas decorativas */}
+      <svg
+        className="pointer-events-none absolute -left-1/4 top-0 h-[45%] w-[150%] text-red-200/50"
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path
+          fill="currentColor"
+          d="M0,192L48,197.3C96,203,192,213,288,218.7C384,224,480,224,576,208C672,192,768,160,864,154.7C960,149,1056,171,1152,181.3C1248,192,1344,192,1392,192L1440,192L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
+        />
+      </svg>
+      <svg
+        className="pointer-events-none absolute -right-1/4 bottom-0 h-[40%] w-[150%] text-rose-300/40"
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path
+          fill="currentColor"
+          d="M0,96L48,112C96,128,192,160,288,186.7C384,213,480,235,576,229.3C672,224,768,192,864,181.3C960,171,1056,181,1152,186.7C1248,192,1344,192,1392,192L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+        />
+      </svg>
+      <svg
+        className="pointer-events-none absolute bottom-[18%] left-0 h-24 w-full text-slate-300/30"
+        viewBox="0 0 1200 120"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path
+          fill="currentColor"
+          d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z"
+        />
+      </svg>
+      <div
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-100/90 via-transparent to-white/40"
+        aria-hidden
+      />
+
       <section
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+        className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur-sm"
         aria-label="Inicio de sesion"
       >
-        <header className="border-b border-slate-100 px-6 py-7 text-center">
-          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-rose-100 font-bold text-rose-800">
-            AL
+        <header className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-red-50/90 via-white to-white px-6 pb-8 pt-8 text-center">
+          <div
+            className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-red-100/60 blur-2xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -bottom-6 -left-8 h-24 w-24 rounded-full bg-slate-100/80 blur-2xl"
+            aria-hidden
+          />
+          <div className="relative mx-auto w-fit rounded-2xl bg-white px-5 py-4 shadow-md ring-1 ring-slate-200/80">
+            <img
+              src="/logounilibre.png"
+              alt="Universidad Libre"
+              className="mx-auto h-auto max-h-24 w-auto max-w-[200px] object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">AulaLibre</h1>
-          <p className="mt-1 text-sm font-semibold text-rose-700">Sistema Academico</p>
+          
+          <h1 className="relative mt-1.5 text-3xl font-bold tracking-tight text-slate-900">AulaLibre</h1>
+          <p className="relative mt-1 text-sm font-medium text-slate-500">Sistema académico institucional</p>
         </header>
 
         <form className="flex flex-col gap-2 p-6" onSubmit={handleSubmit}>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
+import UniversidadLogo from '../components/UniversidadLogo'
 import { apiGetScheduleOffer, type ApiGroup } from '../services/api'
 import {
   DAY_LABELS,
@@ -265,9 +266,15 @@ export default function StudentDashboardTailwindPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col bg-rose-50 text-rose-900 lg:my-6 lg:overflow-hidden lg:rounded-3xl lg:shadow-2xl lg:shadow-rose-900/10">
       <header className="rounded-b-3xl bg-gradient-to-br from-red-700 via-rose-700 to-red-800 px-4 pb-4 pt-5 text-rose-50 sm:px-6">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold leading-tight">Horario Académico</h1>
-            <p className="mt-1 text-sm font-medium text-rose-100">Sede Barranquilla</p>
+          <div className="flex items-center gap-3">
+            <UniversidadLogo size="md" className="bg-white/95 ring-white/40" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-100/90">
+                Universidad Libre
+              </p>
+              <h1 className="text-2xl font-bold leading-tight">Horario Académico</h1>
+              <p className="mt-0.5 text-sm font-medium text-rose-100">Sede Barranquilla · AulaLibre</p>
+            </div>
           </div>
           <button className="grid h-11 w-11 place-items-center rounded-xl bg-white/20 print:hidden">
             🔔

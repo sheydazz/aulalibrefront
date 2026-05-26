@@ -1,15 +1,17 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import UniversidadLogo from '../components/UniversidadLogo'
 import { getSession } from '../auth'
 import { useLogout } from '../hooks/useLogout'
 
-const NAV = [
+const NAV: { to: string; label: string; end?: boolean }[] = [
+  { to: '/admin', label: 'Inicio', end: true },
   { to: '/admin/usuarios', label: 'Usuarios y accesos' },
   { to: '/admin/programas', label: 'Programas y semestres' },
   { to: '/admin/grupos', label: 'Grupos por asignatura' },
   { to: '/admin/docentes', label: 'Perfil docente' },
   { to: '/admin/infraestructura', label: 'Espacios físicos' },
   { to: '/admin/horarios', label: 'Constructor de horarios' },
-] as const
+]
 
 function navClass(isActive: boolean) {
   return [
@@ -27,18 +29,16 @@ export default function AdminLayout() {
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-700 text-sm font-bold text-white">
-              FI
-            </div>
+          <Link to="/admin" className="flex items-center gap-3 transition hover:opacity-90">
+            <UniversidadLogo size="md" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                Facultad de Ingeniería — Universidad Libre
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-red-700">
+                Universidad Libre
               </p>
               <h1 className="text-lg font-bold text-slate-900 sm:text-xl">Panel de administración</h1>
               <p className="text-sm text-slate-500">Gestión académica, accesos e infraestructura</p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="hidden text-right text-sm sm:block">
@@ -61,7 +61,12 @@ export default function AdminLayout() {
         <nav className="border-t border-slate-100 bg-white">
           <div className="mx-auto flex max-w-7xl flex-wrap gap-1 px-4 py-2 sm:px-6">
             {NAV.map((item) => (
-              <NavLink key={item.to} to={item.to} className={({ isActive }) => navClass(isActive)}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => navClass(isActive)}
+              >
                 {item.label}
               </NavLink>
             ))}
@@ -75,8 +80,8 @@ export default function AdminLayout() {
 
       <footer className="border-t border-slate-200 bg-white py-4 text-xs text-slate-500">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-2 px-4 sm:flex-row sm:items-center sm:px-6">
-          <span>© 2026 Universidad Libre — Facultad de Ingeniería</span>
-          <div className="flex flex-wrap gap-4">
+          <span>© 2026 Universidad Libre</span>
+          <div className="flex flex-wrap gap-4">  
             <a className="font-semibold text-slate-600 hover:text-red-700" href="#">
               Políticas de privacidad
             </a>

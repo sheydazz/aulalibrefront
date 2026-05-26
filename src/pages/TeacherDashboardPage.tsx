@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import UniversidadLogo from '../components/UniversidadLogo'
 import { getSession } from '../auth'
 import {
   apiGetTeacherByEmail, apiGetTeacherReports, apiCreateTeacherReport,
@@ -33,13 +34,6 @@ const TEACHER_DAYS: { key: Exclude<TeacherDayFilter, 'all'>; label: string; toke
   { key: 'vie', label: 'Vie', token: 'vie' },
   { key: 'sab', label: 'Sab', token: 'sab' },
 ]
-
-function initiales(nombreCompleto: string) {
-  const partes = nombreCompleto.trim().split(/\s+/).filter(Boolean)
-  const a = partes[0]?.[0] ?? ''
-  const b = partes[1]?.[0] ?? partes[0]?.[1] ?? ''
-  return (a + b).toUpperCase() || 'DC'
-}
 
 function detectDayLabels(horario: string) {
   const lowered = horario.toLowerCase()
@@ -133,10 +127,11 @@ export default function TeacherDashboardPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="grid h-14 w-14 place-items-center rounded-xl bg-red-700 text-base font-bold text-white">
-              {initiales(docente.nombreCompleto)}
-            </div>
+            <UniversidadLogo size="lg" />
             <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-red-700">
+                Universidad Libre
+              </p>
               <h1 className="text-2xl font-bold text-slate-900">Panel docente</h1>
               <p className="text-sm text-slate-600">{docente.tituloProfesional} {docente.nombreCompleto} · {docente.departamento}</p>
               <p className="text-xs text-slate-500">Periodo 2026-1</p>

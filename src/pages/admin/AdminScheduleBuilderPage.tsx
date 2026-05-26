@@ -443,7 +443,6 @@ export default function AdminScheduleBuilderPage() {
           Vista
           <select className="ml-2 rounded-lg border border-slate-200 px-2 py-1.5 font-normal" defaultValue="grupo">
             <option value="grupo">Por grupo (asignar salón por materia)</option>
-            <option disabled>Por docente (próximamente)</option>
           </select>
         </label>
       </div>
