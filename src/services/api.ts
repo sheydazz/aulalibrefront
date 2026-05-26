@@ -110,7 +110,17 @@ export async function apiCreateSubject(
   programId: string,
   data: Omit<ApiSubject, 'id' | 'program_id'>,
 ): Promise<ApiSubject> {
-  return request(`/programs/${programId}/subjects`, { method: 'POST', body: JSON.stringify(data) })
+  const body = {
+    semestre: data.semestre,
+    codigo: data.codigo,
+    nombre: data.nombre,
+    creditos: data.creditos,
+    hTeoria: data.h_teoria,
+    hPractica: data.h_practica,
+    area: data.area,
+    areaTone: data.area_tone,
+  }
+  return request(`/programs/${programId}/subjects`, { method: 'POST', body: JSON.stringify(body) })
 }
 
 export async function apiDeleteSubject(subjectId: number): Promise<void> {
