@@ -157,6 +157,7 @@ export default function AdminScheduleBuilderPage() {
   const [dragOverCell, setDragOverCell] = useState<{ key: string; valid: boolean } | null>(null)
   const [draggingGrupoId, setDraggingGrupoId] = useState<string | null>(null)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [savingSchedule, setSavingSchedule] = useState(false)
 
   useEffect(() => {
@@ -303,17 +304,28 @@ export default function AdminScheduleBuilderPage() {
   }, [assignments, salonByCell, oferta, espacios, defaultSalonCodigo])
 
   const persistSchedule = async (status: 'draft' | 'published') => {
-    if (!programaId || !semestreNum || !grupoSeccion) return
+    if (!programaId || !semestreNum || !grupoSeccion) {
+      setLastMessage('Selecciona programa, semestre y grupo antes de guardar.')
+      setSaveStatus('error')
+      return
+    }
     setSavingSchedule(true)
     setLastMessage(null)
+    setSaveStatus('idle')
     try {
+      const skipped: string[] = []
       const payload = Object.entries(assignments)
         .flatMap(([key, groupId]) => {
           if (!groupId) return []
           const [slotIdx, dayIdx] = key.split('-').map(Number)
+          const spaceCodigo = salonByCell[key] ?? defaultSalonCodigo
+          if (!spaceCodigo) {
+            skipped.push(groupId)
+            return []
+          }
           return [{
             groupId,
-            spaceCodigo: salonByCell[key] ?? defaultSalonCodigo,
+            spaceCodigo,
             dayIndex: dayIdx,
             slotIndex: slotIdx,
           }]
@@ -325,12 +337,24 @@ export default function AdminScheduleBuilderPage() {
         status,
         assignments: payload,
       })
-      setLastMessage(`${result.message}: ${result.count} asignaciones.`)
+      // Al publicar, sincronizar el borrador para que al refrescar
+      // el grid muestre el estado publicado en vez de quedar vacío.
       if (status === 'published') {
+        await apiSaveScheduleAssignments({
+          programaId,
+          semestreNum,
+          grupoSeccion,
+          status: 'draft',
+          assignments: payload,
+        })
         setEspacios(await apiGetSpaces())
       }
+      const skippedNote = skipped.length ? ` (${skipped.length} sin salón omitidos)` : ''
+      setLastMessage(`${result.message}: ${result.count} asignaciones${skippedNote}.`)
+      setSaveStatus('success')
     } catch (err) {
       setLastMessage(err instanceof Error ? err.message : 'Error al guardar horario')
+      setSaveStatus('error')
     } finally {
       setSavingSchedule(false)
     }
@@ -361,7 +385,10 @@ export default function AdminScheduleBuilderPage() {
             </span>
           </div>
           {lastMessage ? (
-            <p className="mt-2 text-sm font-semibold text-red-700" role="status">
+            <p
+              className={`mt-2 text-sm font-semibold ${saveStatus === 'success' ? 'text-emerald-700' : 'text-red-700'}`}
+              role="status"
+            >
               {lastMessage}
             </p>
           ) : null}

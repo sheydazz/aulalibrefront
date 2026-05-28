@@ -255,6 +255,45 @@ export async function apiUpdateGroup(id: string, data: Partial<ApiGroup>): Promi
   return request(`/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 }
 
+export type PublishedCombo = {
+  program_id: string
+  semestre_num: number
+  grupo_seccion: string
+  programa_nombre: string
+}
+
+export async function apiGetPublishedCombos(): Promise<PublishedCombo[]> {
+  return request('/schedules/published-combos')
+}
+
+export type StudentBlock = {
+  day_index: number
+  dia: string
+  hora: string
+  start_time: string
+  end_time: string
+  asignatura: string
+  docente: string | null
+  salon: string
+  horas: number
+  semestre_num: number
+  programa_id: string
+  grupo_seccion: string
+}
+
+export async function apiGetStudentSchedule(params: {
+  programaId: string
+  semestreNum: number
+  grupoSeccion: string
+}): Promise<{ bloques: StudentBlock[] }> {
+  const qs = new URLSearchParams({
+    programaId: params.programaId,
+    semestreNum: String(params.semestreNum),
+    grupoSeccion: params.grupoSeccion,
+  })
+  return request(`/schedules/student?${qs.toString()}`)
+}
+
 // ─── Role helper ─────────────────────────────────────────────────────────────
 
 export function rolDisplayToRole(rolDisplay: string): UserRole {
