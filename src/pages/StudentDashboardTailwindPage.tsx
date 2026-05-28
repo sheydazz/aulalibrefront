@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import UniversidadLogo from '../components/UniversidadLogo'
-import { apiGetScheduleOffer, type ApiGroup } from '../services/api'
+import {
+  apiGetPublishedCombos,
+  apiGetScheduleOffer,
+  apiGetStudentSchedule,
+  type ApiGroup,
+  type PublishedCombo,
+  type StudentBlock,
+} from '../services/api'
 import {
   DAY_LABELS,
-  SCHEDULE_BY_DAY,
   type CardAccent,
   type DayKey,
   type ScheduleBlock,
 } from '../data/studentSchedule'
 
 type TabId = 'horario' | 'crear'
-// Tipo MIME personalizado para mover materias en drag and drop.
 const DRAG_TYPE = 'application/x-aulalibre-student-materia'
 const STUDENT_BUILDER_STORAGE_KEY = 'aulalibre-student-builder'
-// Estructura base del tablero semanal del constructor.
 const BUILDER_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] as const
 const BUILDER_SLOTS = [
   { id: 'b0', label: '07:00 - 09:00', locked: false },
@@ -22,8 +25,10 @@ const BUILDER_SLOTS = [
   { id: 'lunch', label: '13:00 - 15:00', locked: true },
 ] as const
 
+const ACCENT_CYCLE: CardAccent[] = ['emerald', 'violet', 'amber', 'teal', 'slate', 'orange']
+
 const ACCENT_STYLES: Record<CardAccent, string> = {
-  emerald: 'border-l-emerald-600 bg-rose-50 text-rose-900',
+  emerald: 'border-l-emerald-600 bg-emerald-50 text-emerald-900',
   violet: 'border-l-violet-600 bg-violet-50 text-violet-900',
   amber: 'border-l-amber-600 bg-amber-50 text-amber-900',
   teal: 'border-l-teal-600 bg-teal-50 text-teal-900',
@@ -31,18 +36,13 @@ const ACCENT_STYLES: Record<CardAccent, string> = {
   orange: 'border-l-orange-600 bg-orange-50 text-orange-900',
 }
 
-function blockKey(block: ScheduleBlock, index: number) {
-  // Ayuda a React a identificar de forma unica cada tarjeta del horario.
-  return `${block.type}-${block.start}-${block.end}-${index}`
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function builderCellKey(slotIdx: number, dayIdx: number) {
-  // Convierte (fila, columna) del tablero en una llave tipo "1-3".
   return `${slotIdx}-${dayIdx}`
 }
 
 function normalizeDocente(s: string) {
-  // Normaliza texto para comparar docentes evitando problemas de puntos/espacios.
   return s.trim().toLowerCase().replace(/[.,\s]+/g, '')
 }
 
@@ -56,8 +56,6 @@ function simulatePlacement(
   dayIdx: number,
   materiaId: string,
 ): Record<string, string | null> {
-  // Simula "como quedaria" el tablero si soltamos una materia en una celda.
-  // Si la materia ya estaba en otra celda, la mueve (no la duplica).
   const key = builderCellKey(slotIdx, dayIdx)
   const out: Record<string, string | null> = {}
   for (const [k, v] of Object.entries(map)) {
@@ -102,20 +100,67 @@ function getBuilderStorageKey(selection: string) {
   return `${STUDENT_BUILDER_STORAGE_KEY}:${selection}`
 }
 
+const DAY_INDEX_TO_KEY: Record<number, DayKey> = { 0: 'lun', 1: 'mar', 2: 'mie', 3: 'jue', 4: 'vie', 5: 'sab' }
+
+function transformBloques(
+  bloques: StudentBlock[],
+): Record<DayKey, { morning: ScheduleBlock[]; afternoon: ScheduleBlock[] }> {
+  const subjectAccents = new Map<string, CardAccent>()
+  let accentIdx = 0
+
+  const byDay: Record<DayKey, StudentBlock[]> = { lun: [], mar: [], mie: [], jue: [], vie: [], sab: [] }
+  for (const b of bloques) {
+    const key = DAY_INDEX_TO_KEY[b.day_index]
+    if (!key) continue
+    if (!subjectAccents.has(b.asignatura)) {
+      subjectAccents.set(b.asignatura, ACCENT_CYCLE[accentIdx % ACCENT_CYCLE.length])
+      accentIdx++
+    }
+    byDay[key].push(b)
+  }
+  for (const blocks of Object.values(byDay)) {
+    blocks.sort((a, c) => a.start_time.localeCompare(c.start_time))
+  }
+
+  const result = {} as Record<DayKey, { morning: ScheduleBlock[]; afternoon: ScheduleBlock[] }>
+  for (const key of Object.keys(byDay) as DayKey[]) {
+    const morning: ScheduleBlock[] = []
+    const afternoon: ScheduleBlock[] = []
+    for (const b of byDay[key]) {
+      const block: ScheduleBlock = {
+        type: 'class',
+        start: b.start_time,
+        end: b.end_time,
+        title: (b.asignatura ?? '').toUpperCase(),
+        professor: b.docente ?? 'Sin docente asignado',
+        location: b.salon,
+        accent: subjectAccents.get(b.asignatura) ?? 'emerald',
+      }
+      if (b.start_time < '13:00') morning.push(block)
+      else afternoon.push(block)
+    }
+    if (morning.length === 0) morning.push({ type: 'empty', start: '07:00', end: '13:00' })
+    if (afternoon.length === 0) afternoon.push({ type: 'empty', start: '13:00', end: '21:00' })
+    result[key] = { morning, afternoon }
+  }
+  return result
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function StudentDashboardTailwindPage() {
   const [oferta, setOferta] = useState<ApiGroup[]>([])
-
-  useEffect(() => {
-    apiGetScheduleOffer().then(setOferta).catch(() => {})
-  }, [])
-
-  const [day, setDay] = useState<DayKey>('lun')
-  const [programa, setPrograma] = useState('Ingeniería de Sistemas')
-  const [semestreGrupo, setSemestreGrupo] = useState('5to Semestre - Grupo A')
   const [tab, setTab] = useState<TabId>('horario')
-  const daySchedule = useMemo(() => SCHEDULE_BY_DAY[day], [day])
 
-  // Estado de la vista "Crear mi horario" (constructor interactivo).
+  // ── "Mi horario" state ──────────────────────────────────────────────────────
+  const [combos, setCombos] = useState<PublishedCombo[]>([])
+  const [selectedComboKey, setSelectedComboKey] = useState<string>('')
+  const [scheduleByDay, setScheduleByDay] = useState<Record<DayKey, { morning: ScheduleBlock[]; afternoon: ScheduleBlock[] }> | null>(null)
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [day, setDay] = useState<DayKey>('lun')
+
+  // ── "Crear mi horario" state ────────────────────────────────────────────────
   const [builderSelection, setBuilderSelection] = useState('5-A')
   const [builderAssignments, setBuilderAssignments] = useState<Record<string, string | null>>({})
   const [builderPendingIds, setBuilderPendingIds] = useState<Set<string>>(() => new Set())
@@ -124,15 +169,51 @@ export default function StudentDashboardTailwindPage() {
   const [builderDraggingId, setBuilderDraggingId] = useState<string | null>(null)
   const [builderMessage, setBuilderMessage] = useState<string | null>(null)
 
+  // Load schedule offer and published combos on mount
+  useEffect(() => {
+    apiGetScheduleOffer().then(setOferta).catch(() => {})
+    apiGetPublishedCombos()
+      .then((data) => {
+        setCombos(data)
+        if (data.length > 0) {
+          const first = data[0]
+          setSelectedComboKey(`${first.program_id}:${first.semestre_num}:${first.grupo_seccion}`)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // Fetch schedule whenever selected combo changes
+  useEffect(() => {
+    if (!selectedComboKey) {
+      setScheduleByDay(null)
+      return
+    }
+    const [programaId, semestreNumStr, grupoSeccion] = selectedComboKey.split(':')
+    if (!programaId || !semestreNumStr || !grupoSeccion) return
+
+    setScheduleLoading(true)
+    setScheduleError(null)
+    apiGetStudentSchedule({ programaId, semestreNum: Number(semestreNumStr), grupoSeccion })
+      .then(({ bloques }) => {
+        setScheduleByDay(transformBloques(bloques))
+      })
+      .catch(() => {
+        setScheduleError('No se pudo cargar el horario. Intenta de nuevo.')
+        setScheduleByDay(null)
+      })
+      .finally(() => setScheduleLoading(false))
+  }, [selectedComboKey])
+
+  const daySchedule = scheduleByDay?.[day] ?? { morning: [], afternoon: [] }
+
+  // Builder derived data
   const builderOptions = useMemo(() => {
-    const combos = new Set(oferta.map((m) => `${m.semestreNum}-${m.grupoSeccion}`))
-    return [...combos]
+    const combosSet = new Set(oferta.map((m) => `${m.semestreNum}-${m.grupoSeccion}`))
+    return [...combosSet]
       .map((key) => {
         const [semestreNum, grupoSeccion] = key.split('-')
-        return {
-          value: key,
-          label: `${semestreNum}to Semestre - Grupo ${grupoSeccion}`,
-        }
+        return { value: key, label: `${semestreNum}to Semestre - Grupo ${grupoSeccion}` }
       })
       .sort((a, b) => a.value.localeCompare(b.value, 'es'))
   }, [oferta])
@@ -144,7 +225,6 @@ export default function StudentDashboardTailwindPage() {
   }, [builderSelection, oferta])
 
   useEffect(() => {
-    // Cuando cambia semestre/grupo, intenta restaurar un borrador local.
     const raw = localStorage.getItem(getBuilderStorageKey(builderSelection))
     if (!raw) {
       setBuilderAssignments({})
@@ -171,7 +251,6 @@ export default function StudentDashboardTailwindPage() {
   }, [builderCatalog, builderSelection])
 
   const builderPendingList = useMemo(() => {
-    // Filtro de busqueda sobre materias pendientes del catalogo.
     const q = builderSearch.trim().toLowerCase()
     return builderCatalog.filter((m) => builderPendingIds.has(m.id)).filter(
       (m) =>
@@ -183,13 +262,9 @@ export default function StudentDashboardTailwindPage() {
   }, [builderCatalog, builderPendingIds, builderSearch])
 
   const onBuilderPlace = (slotIdx: number, dayIdx: number, materiaId: string) => {
-    // Intenta ubicar una materia en una celda; si falla validacion muestra motivo.
     const key = builderCellKey(slotIdx, dayIdx)
     const v = validatePlacement(oferta, builderAssignments, slotIdx, dayIdx, materiaId)
-    if (v.ok === false) {
-      setBuilderMessage(v.reason)
-      return
-    }
+    if (!v.ok) { setBuilderMessage(v.reason); return }
     setBuilderMessage(null)
     const previousId = builderAssignments[key] ?? null
     const newMap = simulatePlacement(builderAssignments, slotIdx, dayIdx, materiaId)
@@ -203,39 +278,26 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderClearCell = (slotIdx: number, dayIdx: number) => {
-    // Quita materia de la celda y la devuelve al panel de pendientes.
     const key = builderCellKey(slotIdx, dayIdx)
     const id = builderAssignments[key]
     if (!id) return
-    setBuilderAssignments((prev) => {
-      const next = { ...prev }
-      delete next[key]
-      return next
-    })
+    setBuilderAssignments((prev) => { const next = { ...prev }; delete next[key]; return next })
     setBuilderPendingIds((prev) => new Set(prev).add(id))
     setBuilderMessage(null)
   }
 
   const onBuilderDragStart = (e: DragEvent, materiaId: string) => {
-    // Inicia arrastre guardando el id de materia en DataTransfer.
     e.dataTransfer.setData(DRAG_TYPE, materiaId)
     e.dataTransfer.effectAllowed = 'move'
     setBuilderDraggingId(materiaId)
     setBuilderMessage(null)
   }
 
-  const onBuilderDragEnd = () => {
-    setBuilderDraggingId(null)
-    setBuilderDragOverCell(null)
-  }
+  const onBuilderDragEnd = () => { setBuilderDraggingId(null); setBuilderDragOverCell(null) }
 
   const onBuilderDragOver = (e: DragEvent, slotIdx: number, dayIdx: number) => {
-    // Evalua si la celda actual permite soltar la materia (feedback verde/rojo).
     e.preventDefault()
-    if (!builderDraggingId) {
-      setBuilderDragOverCell(null)
-      return
-    }
+    if (!builderDraggingId) { setBuilderDragOverCell(null); return }
     const slot = BUILDER_SLOTS[slotIdx]
     if (slot?.locked) {
       setBuilderDragOverCell({ key: builderCellKey(slotIdx, dayIdx), valid: false })
@@ -248,7 +310,6 @@ export default function StudentDashboardTailwindPage() {
   }
 
   const onBuilderDrop = (e: DragEvent, slotIdx: number, dayIdx: number) => {
-    // Al soltar, toma el id arrastrado y delega en onBuilderPlace.
     e.preventDefault()
     const materiaId = e.dataTransfer.getData(DRAG_TYPE) || builderDraggingId
     setBuilderDragOverCell(null)
@@ -261,6 +322,14 @@ export default function StudentDashboardTailwindPage() {
     localStorage.setItem(getBuilderStorageKey(builderSelection), JSON.stringify(builderAssignments))
     setBuilderMessage('Horario guardado correctamente en este navegador.')
   }
+
+  // Label for current combo selection
+  const selectedComboLabel = useMemo(() => {
+    const [pid, snStr, gs] = selectedComboKey.split(':')
+    const combo = combos.find((c) => c.program_id === pid && String(c.semestre_num) === snStr && c.grupo_seccion === gs)
+    if (!combo) return 'Sin horario publicado'
+    return `${combo.programa_nombre} · Sem. ${combo.semestre_num} - Grupo ${combo.grupo_seccion}`
+  }, [selectedComboKey, combos])
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col bg-rose-50 text-rose-900 lg:my-6 lg:overflow-hidden lg:rounded-3xl lg:shadow-2xl lg:shadow-rose-900/10">
@@ -307,35 +376,35 @@ export default function StudentDashboardTailwindPage() {
         </nav>
 
         {tab === 'horario' ? (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 flex flex-col gap-2">
             <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-widest text-rose-100">
-              <span>Programa</span>
-              <select
-                className="w-full rounded-xl border border-white/30 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900"
-                value={programa}
-                onChange={(e) => setPrograma(e.target.value)}
-              >
-                <option>Ingeniería de Sistemas</option>
-                <option>Ingeniería Industrial</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-widest text-rose-100">
-              <span>Semestre / Grupo</span>
-              <select
-                className="w-full rounded-xl border border-white/30 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900"
-                value={semestreGrupo}
-                onChange={(e) => setSemestreGrupo(e.target.value)}
-              >
-                <option>5to Semestre - Grupo A</option>
-                <option>5to Semestre - Grupo B</option>
-              </select>
+              <span>Programa · Semestre · Grupo</span>
+              {combos.length === 0 ? (
+                <p className="rounded-xl border border-white/30 bg-rose-50/20 px-3 py-2 text-sm font-semibold text-rose-100">
+                  {scheduleLoading ? 'Cargando...' : 'No hay horarios publicados aún.'}
+                </p>
+              ) : (
+                <select
+                  className="w-full rounded-xl border border-white/30 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900"
+                  value={selectedComboKey}
+                  onChange={(e) => setSelectedComboKey(e.target.value)}
+                >
+                  {combos.map((c) => {
+                    const key = `${c.program_id}:${c.semestre_num}:${c.grupo_seccion}`
+                    return (
+                      <option key={key} value={key}>
+                        {c.programa_nombre} · Sem. {c.semestre_num} - Grupo {c.grupo_seccion}
+                      </option>
+                    )
+                  })}
+                </select>
+              )}
             </label>
           </div>
         ) : null}
       </header>
 
       {tab === 'crear' ? (
-        // Vista de constructor: pendientes (izquierda) + tablero (derecha).
         <main className="flex-1 px-4 py-6 sm:px-6">
           <section className="space-y-4 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -349,18 +418,22 @@ export default function StudentDashboardTailwindPage() {
                   value={builderSelection}
                   onChange={(e) => setBuilderSelection(e.target.value)}
                 >
-                  {builderOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
+                  {builderOptions.length === 0 ? (
+                    <option value="5-A">Sin oferta disponible</option>
+                  ) : (
+                    builderOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <button
                   type="button"
                   onClick={onSaveBuilder}
                   className="rounded-xl bg-rose-700 px-4 py-2 text-sm font-bold text-white hover:bg-rose-800"
                 >
-                  Guardar horario
+                  Guardar borrador
                 </button>
               </div>
             </div>
@@ -395,6 +468,11 @@ export default function StudentDashboardTailwindPage() {
                       Ya ubicaste todas las materias de esta oferta.
                     </li>
                   ) : null}
+                  {builderCatalog.length === 0 ? (
+                    <li className="rounded-lg border border-dashed border-rose-200 p-3 text-center text-xs text-slate-400">
+                      No hay materias en la oferta para este semestre/grupo.
+                    </li>
+                  ) : null}
                 </ul>
               </aside>
 
@@ -404,9 +482,7 @@ export default function StudentDashboardTailwindPage() {
                     <tr className="bg-rose-50 text-xs font-bold uppercase text-rose-700">
                       <th className="border-b border-rose-100 px-2 py-2">Hora</th>
                       {BUILDER_DAYS.map((d) => (
-                        <th key={d} className="border-b border-l border-rose-100 px-2 py-2">
-                          {d}
-                        </th>
+                        <th key={d} className="border-b border-l border-rose-100 px-2 py-2">{d}</th>
                       ))}
                     </tr>
                   </thead>
@@ -454,10 +530,7 @@ export default function StudentDashboardTailwindPage() {
                                 {m ? (
                                   <div
                                     draggable
-                                    onDragStart={(e) => {
-                                      e.stopPropagation()
-                                      onBuilderDragStart(e, m.id)
-                                    }}
+                                    onDragStart={(e) => { e.stopPropagation(); onBuilderDragStart(e, m.id) }}
                                     onDragEnd={onBuilderDragEnd}
                                     className="cursor-grab active:cursor-grabbing"
                                   >
@@ -488,7 +561,6 @@ export default function StudentDashboardTailwindPage() {
           </section>
         </main>
       ) : (
-        // Vista de consulta del horario actual (solo lectura por dia).
         <>
           <div className="bg-rose-50 px-4 pt-3 sm:px-6 print:hidden">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -510,26 +582,44 @@ export default function StudentDashboardTailwindPage() {
           </div>
 
           <main className="flex-1 px-4 py-4 pb-24 sm:px-6">
-            <section className="mb-6">
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                Jornada mañana
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                {daySchedule.morning.map((block, i) => (
-                  <ScheduleCard key={blockKey(block, i)} block={block} />
-                ))}
+            {scheduleLoading ? (
+              <div className="flex items-center justify-center py-16 text-rose-700 font-semibold">
+                Cargando horario...
               </div>
-            </section>
-            <section className="mb-6">
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                Jornada tarde / noche
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                {daySchedule.afternoon.map((block, i) => (
-                  <ScheduleCard key={blockKey(block, i)} block={block} />
-                ))}
+            ) : scheduleError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                {scheduleError}
               </div>
-            </section>
+            ) : combos.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-rose-300 bg-rose-100/40 p-8 text-center">
+                <p className="text-base font-bold text-rose-800">No hay horarios publicados</p>
+                <p className="mt-1 text-sm text-rose-600">El administrador aún no ha publicado ningún horario.</p>
+              </div>
+            ) : (
+              <>
+                <p className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-500">{selectedComboLabel}</p>
+                <section className="mb-6">
+                  <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Jornada mañana
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {daySchedule.morning.map((block, i) => (
+                      <ScheduleCard key={`${block.type}-${block.start}-${i}`} block={block} />
+                    ))}
+                  </div>
+                </section>
+                <section className="mb-6">
+                  <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Jornada tarde / noche
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {daySchedule.afternoon.map((block, i) => (
+                      <ScheduleCard key={`${block.type}-${block.start}-${i}`} block={block} />
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
             <button
               type="button"
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-red-700 to-rose-700 px-4 py-3 text-sm font-bold text-white print:hidden"
@@ -543,7 +633,7 @@ export default function StudentDashboardTailwindPage() {
 
       <footer className="sticky bottom-0 flex items-center justify-between border-t border-rose-200 bg-rose-50/90 px-4 py-3 text-sm backdrop-blur print:hidden sm:px-6">
         <span className="font-semibold text-slate-600">AulaLibre · Estudiante</span>
-        <span className="font-medium text-slate-500">Usa “Salir” en la barra superior</span>
+        <span className="font-medium text-slate-500">Usa "Salir" en la barra superior</span>
       </footer>
     </div>
   )
@@ -551,7 +641,6 @@ export default function StudentDashboardTailwindPage() {
 
 function ScheduleCard({ block }: { block: ScheduleBlock }) {
   if (block.type === 'empty') {
-    // Bloque sin clase asignada.
     return (
       <article className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4">
         <div className="mb-1 text-xs font-bold text-slate-700">
@@ -563,7 +652,6 @@ function ScheduleCard({ block }: { block: ScheduleBlock }) {
   }
 
   return (
-    // Bloque de clase real (materia, docente y ubicacion).
     <article className={`rounded-xl border-l-4 p-4 shadow-sm ${ACCENT_STYLES[block.accent]}`}>
       <div className="mb-2 text-xs font-bold text-slate-700">
         {block.start} - {block.end}
