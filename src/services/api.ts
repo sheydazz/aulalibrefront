@@ -162,8 +162,8 @@ export async function apiUpdateTeacherAvailability(id: string, data: Record<stri
 }
 
 export type ApiReport = {
-  id: string; teacher_id: string; tipo: string; subject: string; detail: string
-  status: string; created_at: string
+  id: string; teacherId: string; tipo: string; subject: string; detail: string
+  status: string; adminResponse: string | null; createdAt: string
 }
 
 export async function apiGetTeacherReports(id: string): Promise<ApiReport[]> {
@@ -292,6 +292,105 @@ export async function apiGetStudentSchedule(params: {
     grupoSeccion: params.grupoSeccion,
   })
   return request(`/schedules/student?${qs.toString()}`)
+}
+
+// ─── Teacher schedule ─────────────────────────────────────────────────────────
+
+export type ApiTeacherBlock = {
+  day_index: number
+  dia: string
+  slot_index: number
+  hora: string
+  start_time: string
+  end_time: string
+  group_id: string
+  asignatura: string
+  grupo_nombre: string
+  grupo_codigo: string
+  grupo_seccion: string
+  salon: string
+  programa_id: string
+  programa_nombre: string
+  semestre_num: number
+  status: string
+}
+
+export async function apiGetTeacherSchedule(params: {
+  teacherId?: string
+  status?: 'draft' | 'published'
+} = {}): Promise<{ teacherId: string; bloques: ApiTeacherBlock[] }> {
+  const qs = new URLSearchParams()
+  if (params.teacherId) qs.set('teacherId', params.teacherId)
+  if (params.status) qs.set('status', params.status)
+  return request(`/schedules/teacher?${qs.toString()}`)
+}
+
+// ─── Schedule config ──────────────────────────────────────────────────────────
+
+export type ApiScheduleDay = { day_index: number; label: string; active: number }
+export type ApiScheduleSlot = {
+  slot_index: number; label: string; start_time: string; end_time: string
+  duration_hours: number; locked: number; active: number
+}
+
+export async function apiGetScheduleConfig(): Promise<{ days: ApiScheduleDay[]; slots: ApiScheduleSlot[] }> {
+  return request('/schedules/config')
+}
+
+// ─── Student preselection ─────────────────────────────────────────────────────
+
+export type ApiPreselectionResult = {
+  status: 'validado' | 'conflicto'
+  conflicts: string[]
+  message: string
+}
+
+export type ApiPreselection = {
+  id: number
+  programId: string | null
+  semestreNum: number | null
+  status: 'validado' | 'conflicto' | 'pendiente'
+  conflicts: string[]
+  createdAt: string
+  updatedAt: string
+  groups: Array<{
+    id: string; asignatura: string; nombre: string
+    grupo_seccion: string; docente: string | null; horas: number
+  }>
+}
+
+export async function apiSubmitStudentPreselection(data: {
+  groupIds: string[]
+  programaId?: string
+  semestreNum?: number
+}): Promise<ApiPreselectionResult> {
+  return request('/schedules/student-preselection', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function apiGetStudentPreselection(): Promise<ApiPreselection | null> {
+  return request('/schedules/student-preselection')
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+export type ApiNotification = {
+  id: number; userId: number; tipo: string; titulo: string
+  mensaje: string; leida: boolean; createdAt: string
+}
+
+export async function apiGetNotifications(unreadOnly = false): Promise<{ notifications: ApiNotification[]; unreadCount: number }> {
+  return request(`/notifications${unreadOnly ? '?unread=true' : ''}`)
+}
+
+export async function apiMarkNotificationRead(id: number): Promise<void> {
+  return request(`/notifications/${id}/read`, { method: 'PUT' })
+}
+
+export async function apiMarkAllNotificationsRead(): Promise<void> {
+  return request('/notifications/read-all', { method: 'PUT' })
 }
 
 // ─── Role helper ─────────────────────────────────────────────────────────────
